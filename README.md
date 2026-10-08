@@ -15,6 +15,7 @@ cp .env.example .env
 make install
 make db-up
 make migrate
+make setup-testnet   # creates testnet accounts; paste the output into .env
 make dev-api   # http://localhost:8080/health
 ```
 
