@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "stellar-secret-seed"
+description = "Stellar secret seed"
+regex = '''\bS[A-Z2-7]{55}\b'''
+keywords = ["S"]

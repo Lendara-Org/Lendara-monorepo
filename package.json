@@ -4,5 +4,53 @@
   "packageManager": "pnpm@12.10.1",
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "prepare": "lefthook install",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "lefthook": "2.1.17"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ],
+    "rules": {
+      "type-enum": [
+        2,
+        "always",
+        [
+          "feat",
+          "fix",
+          "chore",
+          "docs",
+          "test",
+          "refactor",
+          "ci"
+        ]
+      ],
+      "scope-enum": [
+        2,
+        "always",
+        [
+          "api",
+          "web",
+          "sdk",
+          "widget",
+          "demo",
+          "repo"
+        ]
+      ],
+      "scope-empty": [
+        2,
+        "never"
+      ]
+    }
   }
 }

@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down
+.PHONY: install db-up db-down lint typecheck test build
 
 install:
 	pnpm install
@@ -8,3 +8,15 @@ db-up:
 
 db-down:
 	docker compose down
+
+lint:
+	pnpm lint
+
+typecheck:
+	pnpm typecheck
+
+test:
+	pnpm test
+
+build:
+	pnpm build
