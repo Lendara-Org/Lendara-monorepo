@@ -1,0 +1,6 @@
+# Vulnerabilities accepted after review. One OSV ID per line, with the reason.
+# CI fails on any other vulnerability reachable from our code.
+
+# go-chi/chi RedirectSlashes open redirect. Pulled in by the Stellar SDK's
+# horizon package; we never use chi or that middleware. No fixed version.
+GO-2026-4316
