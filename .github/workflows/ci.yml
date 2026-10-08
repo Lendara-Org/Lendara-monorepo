@@ -24,10 +24,48 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: make lint
+      - run: make lint-js
       - run: make typecheck
-      - run: make test
-      - run: make build
+      - run: make test-js
+      - run: make build-js
+
+  api:
+    name: Go API (lint, vuln, migrations, test, build)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lendara
+          POSTGRES_PASSWORD: lendara
+          POSTGRES_DB: lendara
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lendara"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://lendara:lendara@localhost:5432/lendara?sslmode=disable
+      TEST_DATABASE_URL: postgres://lendara:lendara@localhost:5432/lendara?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: |
+            apps/api/go.sum
+            apps/api/tools.sum
+      - run: make lint-api
+      - run: make vuln-api
+      - name: Migrations apply and roll back cleanly
+        run: |
+          make migrate
+          make migrate-reset
+          make migrate
+      - run: make test-api
+      - run: make build-api
 
   secrets:
     name: Secret scan (gitleaks)

@@ -14,7 +14,20 @@ Embeddable fiat → USDC on-ramp for Stellar (testnet only, simulated fiat rails
 cp .env.example .env
 make install
 make db-up
+make migrate
+make dev-api   # http://localhost:8080/health
 ```
+
+## Common commands
+
+| Command | What it does |
+|---|---|
+| `make lint` | Lint JS/TS and Go (`golangci-lint`, `go mod tidy -diff`) |
+| `make test` | Run all tests (Go integration tests need `TEST_DATABASE_URL`) |
+| `make vuln-api` | Scan Go dependencies with `govulncheck` |
+| `make migrate` / `make migrate-down` | Apply / roll back the latest DB migration |
+
+Go tools (`goose`, `golangci-lint`, `govulncheck`) are pinned in `apps/api/tools.mod` and run with `go tool`; nothing to install globally.
 
 ## Contributing
 
