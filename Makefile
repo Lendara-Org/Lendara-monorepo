@@ -6,7 +6,7 @@ GO_TOOL := go tool -modfile=tools.mod
 GOOSE   := $(GO_TOOL) goose -dir migrations postgres "$(DATABASE_URL)"
 
 .PHONY: install db-up db-down dev-api migrate migrate-down migrate-reset migrate-status \
-	lint lint-js lint-api typecheck test test-js test-api vuln-api build build-js build-api
+	lint lint-js lint-api lint-openapi codegen codegen-api codegen-sdk typecheck test test-js test-api vuln-api build build-js build-api
 
 install:
 	pnpm install
@@ -32,10 +32,13 @@ migrate-reset:
 migrate-status:
 	cd $(API_DIR) && $(GOOSE) status
 
-lint: lint-js lint-api
+lint: lint-js lint-api lint-openapi
 
 lint-js:
 	pnpm lint
+
+lint-openapi:
+	pnpm exec redocly lint openapi.yaml
 
 lint-api:
 	cd $(API_DIR) && go mod tidy -diff
@@ -54,6 +57,14 @@ test-api:
 
 vuln-api:
 	cd $(API_DIR) && $(GO_TOOL) govulncheck ./...
+
+codegen: codegen-api codegen-sdk
+
+codegen-api:
+	cd $(API_DIR) && $(GO_TOOL) oapi-codegen -config oapi-codegen.yaml ../../openapi.yaml
+
+codegen-sdk:
+	pnpm --filter @lendara/sdk codegen
 
 build: build-js build-api
 
