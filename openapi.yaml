@@ -19,6 +19,10 @@ tags:
     description: Stellar Web Authentication.
   - name: SEP-24
     description: Hosted (interactive) deposit.
+  - name: Lendara API
+    description: REST API for apps that are not Stellar wallets. Authenticated with a project API key.
+  - name: Widget
+    description: Internal endpoints used by the interactive flow at `/widget`.
 
 paths:
   /.well-known/stellar.toml:
@@ -220,6 +224,250 @@ paths:
         "403":
           $ref: "#/components/responses/AuthenticationRequired"
 
+  /v1/projects:
+    post:
+      tags: [Lendara API]
+      operationId: createProject
+      summary: Create a sandbox project
+      description: Returns the project and its API key. The key is shown only once.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectCreateRequest"
+      responses:
+        "201":
+          description: Project created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /v1/project:
+    get:
+      tags: [Lendara API]
+      operationId: getProject
+      summary: Get the project of the API key
+      security:
+        - apiKey: []
+      responses:
+        "200":
+          description: The project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/sessions:
+    post:
+      tags: [Lendara API]
+      operationId: createSession
+      summary: Create an on-ramp session for an end user
+      description: Creates a deposit transaction in `incomplete` status and returns the widget URL to open.
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCreateRequest"
+      responses:
+        "201":
+          description: Session created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/transactions:
+    get:
+      tags: [Lendara API]
+      operationId: listTransactions
+      summary: List the project's transactions
+      security:
+        - apiKey: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          description: Value of `next_cursor` from the previous page.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transactions sorted newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/transactions/{id}:
+    get:
+      tags: [Lendara API]
+      operationId: getTransaction
+      summary: Get one of the project's transactions
+      security:
+        - apiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The transaction.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep24Transaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /widget-api/sessions:
+    post:
+      tags: [Widget]
+      operationId: createWidgetSession
+      summary: Exchange the one-time URL token for a widget session
+      description: The token from the interactive URL can be used once. The returned access token is short-lived and bound to one transaction.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WidgetSessionCreateRequest"
+      responses:
+        "201":
+          description: Widget session created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /widget-api/transaction:
+    get:
+      tags: [Widget]
+      operationId: getWidgetTransaction
+      summary: Get the transaction of the widget session
+      security:
+        - widgetSession: []
+      responses:
+        "200":
+          description: The transaction, with payment instructions once the amount is confirmed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetTransaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /widget-api/quote:
+    get:
+      tags: [Widget]
+      operationId: getWidgetQuote
+      summary: Preview how much USDC the user receives
+      description: Uses fixed, simulated exchange rates and fee.
+      security:
+        - widgetSession: []
+      parameters:
+        - name: fiat_currency
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/FiatCurrency"
+        - name: amount
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/FiatAmount"
+      responses:
+        "200":
+          description: Simulated quote.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /widget-api/transaction/confirm:
+    post:
+      tags: [Widget]
+      operationId: confirmWidgetTransaction
+      summary: Confirm currency and amount
+      description: Moves the transaction from `incomplete` to `pending_user_transfer_start`.
+      security:
+        - widgetSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WidgetConfirmRequest"
+      responses:
+        "200":
+          description: Updated transaction with payment instructions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetTransaction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /widget-api/transaction/simulate-payment:
+    post:
+      tags: [Widget]
+      operationId: simulateWidgetPayment
+      summary: Simulate the user's fiat payment
+      description: The outcome depends on the amount's decimals (sandbox scenarios).
+      security:
+        - widgetSession: []
+      responses:
+        "200":
+          description: Updated transaction. Poll `GET /widget-api/transaction` for progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WidgetTransaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
 security:
   - sep10Jwt: []
 
@@ -230,6 +478,15 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT obtained from `POST /auth` (SEP-10).
+    apiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: lnd_test_<key>
+      description: Project API key from `POST /v1/projects`.
+    widgetSession:
+      type: http
+      scheme: bearer
+      description: Access token from `POST /widget-api/sessions`.
 
   parameters:
     Lang:
@@ -248,6 +505,18 @@ components:
             $ref: "#/components/schemas/Error"
     NotFound:
       description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: The transaction is not in a status that allows this action.
       content:
         application/json:
           schema:
@@ -528,3 +797,167 @@ components:
                 type: string
               amount:
                 type: string
+
+    FiatCurrency:
+      type: string
+      enum: [CRC, ARS, BRL]
+
+    FiatAmount:
+      type: string
+      pattern: '^[0-9]+(\.[0-9]{1,2})?$'
+      description: Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+      example: "10000.00"
+
+    Project:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ProjectCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    ProjectCreated:
+      type: object
+      required: [project, api_key]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        api_key:
+          type: string
+          description: Full API key (`lnd_test_...`). Store it now; it is not shown again.
+
+    SessionCreateRequest:
+      type: object
+      required: [account]
+      properties:
+        account:
+          type: string
+          description: Stellar account (`G...`) that receives the USDC.
+        fiat_currency:
+          $ref: "#/components/schemas/FiatCurrency"
+        amount:
+          $ref: "#/components/schemas/FiatAmount"
+        memo_type:
+          type: string
+          enum: [text, id, hash]
+        memo:
+          type: string
+
+    Session:
+      type: object
+      required: [id, url, expires_at]
+      properties:
+        id:
+          type: string
+          description: Transaction ID.
+        url:
+          type: string
+          description: Widget URL with a one-time token. Open it with `@lendara/widget`.
+        expires_at:
+          type: string
+          format: date-time
+          description: The URL token can't be used after this time.
+
+    TransactionList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sep24Transaction"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` to get the next page. `null` on the last page.
+
+    WidgetSessionCreateRequest:
+      type: object
+      required: [transaction_id, token]
+      properties:
+        transaction_id:
+          type: string
+        token:
+          type: string
+          description: One-time token from the interactive URL.
+
+    WidgetSession:
+      type: object
+      required: [access_token, expires_at]
+      properties:
+        access_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    WidgetConfirmRequest:
+      type: object
+      required: [fiat_currency, amount]
+      properties:
+        fiat_currency:
+          $ref: "#/components/schemas/FiatCurrency"
+        amount:
+          $ref: "#/components/schemas/FiatAmount"
+
+    Quote:
+      type: object
+      required: [fiat_currency, amount_in, rate, fee, amount_out, asset_code]
+      description: Simulated quote. Rates and fee are fictitious.
+      properties:
+        fiat_currency:
+          $ref: "#/components/schemas/FiatCurrency"
+        amount_in:
+          type: string
+          description: Fiat amount the user pays.
+        rate:
+          type: string
+          description: Fiat units per 1 USDC.
+        fee:
+          type: string
+          description: Fee in USDC.
+        amount_out:
+          type: string
+          description: USDC the user receives, after the fee.
+        asset_code:
+          type: string
+          example: USDC
+
+    PaymentInstructions:
+      type: object
+      required: [reference, amount, fiat_currency, description]
+      description: Simulated payment instructions. No real payment is made.
+      properties:
+        reference:
+          type: string
+        amount:
+          type: string
+        fiat_currency:
+          $ref: "#/components/schemas/FiatCurrency"
+        description:
+          type: string
+
+    WidgetTransaction:
+      type: object
+      required: [transaction]
+      properties:
+        transaction:
+          $ref: "#/components/schemas/Sep24Transaction"
+        quote:
+          $ref: "#/components/schemas/Quote"
+        payment_instructions:
+          $ref: "#/components/schemas/PaymentInstructions"
