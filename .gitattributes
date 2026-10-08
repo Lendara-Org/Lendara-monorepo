@@ -1,0 +1,7 @@
+# Collapsed in GitHub diffs and excluded from language stats.
+apps/api/internal/api/api.gen.go linguist-generated=true
+packages/sdk/src/schema.gen.ts linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+apps/api/go.sum linguist-generated=true
+apps/api/tools.mod linguist-generated=true
+apps/api/tools.sum linguist-generated=true

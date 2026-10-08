@@ -1,0 +1,9 @@
+extends:
+  - recommended
+
+rules:
+  info-license: off
+  # localhost is the documented local server.
+  no-server-example.com: off
+  # SEP-1 stellar.toml and SEP-24 /info are public and have no error cases.
+  operation-4xx-response: off

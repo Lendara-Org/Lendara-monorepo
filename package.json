@@ -15,6 +15,7 @@
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
+    "@redocly/cli": "2.59.0",
     "lefthook": "2.1.17"
   },
   "commitlint": {

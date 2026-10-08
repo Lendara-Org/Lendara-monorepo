@@ -1,0 +1,530 @@
+openapi: 3.0.3
+info:
+  title: Lendara Sandbox API
+  version: 0.1.0
+  description: |
+    Fiat → USDC on-ramp sandbox on the Stellar **testnet**. Fiat rails are simulated; no real money moves.
+
+    Stellar-standard endpoints follow the SEPs they implement:
+    [SEP-1](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md),
+    [SEP-10](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0010.md) (v3.4.1),
+    [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md) (v3.8.0).
+servers:
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - name: SEP-1
+    description: Stellar info file.
+  - name: SEP-10
+    description: Stellar Web Authentication.
+  - name: SEP-24
+    description: Hosted (interactive) deposit.
+
+paths:
+  /.well-known/stellar.toml:
+    get:
+      tags: [SEP-1]
+      operationId: getStellarToml
+      summary: Stellar info file
+      description: Generated from configuration. Served with `Access-Control-Allow-Origin` `*`.
+      security: []
+      responses:
+        "200":
+          description: TOML document describing this anchor.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /auth:
+    get:
+      tags: [SEP-10]
+      operationId: getSep10Challenge
+      summary: Request a challenge transaction
+      security: []
+      parameters:
+        - name: account
+          in: query
+          required: true
+          description: Client account (`G...` or `M...`) to authenticate.
+          schema:
+            type: string
+        - name: memo
+          in: query
+          description: ID memo for shared accounts. Only allowed with a `G...` account.
+          schema:
+            type: string
+        - name: home_domain
+          in: query
+          description: Home domain to authenticate with. Defaults to the server's home domain.
+          schema:
+            type: string
+        - name: client_domain
+          in: query
+          description: Client domain to verify. Ignored if client domain verification is not supported.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Challenge transaction signed by the server account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep10ChallengeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [SEP-10]
+      operationId: postSep10Token
+      summary: Exchange a signed challenge for a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Sep10TokenRequest"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/Sep10TokenRequest"
+      responses:
+        "200":
+          description: Session JWT.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep10TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /sep24/info:
+    get:
+      tags: [SEP-24]
+      operationId: getSep24Info
+      summary: Supported assets, limits, fees and features
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Lang"
+      responses:
+        "200":
+          description: Anchor capabilities.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep24Info"
+
+  /sep24/transactions/deposit/interactive:
+    post:
+      tags: [SEP-24]
+      operationId: postSep24DepositInteractive
+      summary: Start an interactive deposit
+      description: Creates a transaction in `incomplete` status and returns the URL of the interactive flow.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Sep24DepositRequest"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/Sep24DepositRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Sep24DepositRequest"
+      responses:
+        "200":
+          description: The wallet must open `url` in a popup or webview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep24InteractiveResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/AuthenticationRequired"
+
+  /sep24/transaction:
+    get:
+      tags: [SEP-24]
+      operationId: getSep24Transaction
+      summary: Get one transaction
+      description: One of `id`, `stellar_transaction_id` or `external_transaction_id` is required.
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+        - name: stellar_transaction_id
+          in: query
+          schema:
+            type: string
+        - name: external_transaction_id
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Lang"
+      responses:
+        "200":
+          description: The transaction.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep24TransactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sep24/transactions:
+    get:
+      tags: [SEP-24]
+      operationId: getSep24Transactions
+      summary: Transaction history of the authenticated account
+      parameters:
+        - name: asset_code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: no_older_than
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: kind
+          in: query
+          schema:
+            $ref: "#/components/schemas/Sep24TransactionKind"
+        - name: paging_id
+          in: query
+          description: Return transactions prior to this ID (exclusive).
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Lang"
+      responses:
+        "200":
+          description: Transactions sorted newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sep24TransactionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/AuthenticationRequired"
+
+security:
+  - sep10Jwt: []
+
+components:
+  securitySchemes:
+    sep10Jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT obtained from `POST /auth` (SEP-10).
+
+  parameters:
+    Lang:
+      name: lang
+      in: query
+      description: RFC 4646 language code. Defaults to `en`.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    AuthenticationRequired:
+      description: Missing or invalid SEP-10 JWT (SEP-24 "Authentication required").
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AuthenticationRequired"
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error, in the request's `lang` when supported.
+
+    AuthenticationRequired:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [authentication_required]
+
+    Sep10ChallengeResponse:
+      type: object
+      required: [transaction, network_passphrase]
+      properties:
+        transaction:
+          type: string
+          description: Base64 XDR transaction envelope signed by the server account.
+        network_passphrase:
+          type: string
+          example: Test SDF Network ; September 2015
+
+    Sep10TokenRequest:
+      type: object
+      required: [transaction]
+      properties:
+        transaction:
+          type: string
+          description: Base64 XDR of the challenge, signed by the client.
+
+    Sep10TokenResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: JWT to send as `Authorization` `Bearer <token>`.
+
+    Sep24Info:
+      type: object
+      required: [deposit, withdraw]
+      properties:
+        deposit:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Sep24AssetInfo"
+        withdraw:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Sep24AssetInfo"
+        fee:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            authentication_required:
+              type: boolean
+        features:
+          type: object
+          properties:
+            account_creation:
+              type: boolean
+            claimable_balances:
+              type: boolean
+
+    Sep24AssetInfo:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+        min_amount:
+          type: number
+          format: double
+        max_amount:
+          type: number
+          format: double
+        fee_fixed:
+          type: number
+          format: double
+        fee_percent:
+          type: number
+          format: double
+          description: Percentage points.
+        fee_minimum:
+          type: number
+          format: double
+
+    Sep24DepositRequest:
+      type: object
+      required: [asset_code]
+      description: Extra SEP-9 KYC fields are allowed.
+      additionalProperties: true
+      properties:
+        asset_code:
+          type: string
+          example: USDC
+        asset_issuer:
+          type: string
+        source_asset:
+          type: string
+          description: Off-chain asset in SEP-38 format, e.g. `iso4217:CRC`.
+        amount:
+          type: number
+          # encoding/json is already imported by the generated code.
+          x-go-type: json.Number
+          description: Amount to deposit. Accepted as a JSON number or a numeric string.
+        quote_id:
+          type: string
+        account:
+          type: string
+          description: Destination account. Defaults to the authenticated account.
+        memo_type:
+          type: string
+          enum: [text, id, hash]
+        memo:
+          type: string
+        lang:
+          type: string
+        claimable_balance_supported:
+          type: boolean
+        customer_id:
+          type: string
+
+    Sep24InteractiveResponse:
+      type: object
+      required: [type, url, id]
+      properties:
+        type:
+          type: string
+          enum: [interactive_customer_info_needed]
+        url:
+          type: string
+          description: Interactive flow URL with a one-time, short-lived token.
+        id:
+          type: string
+
+    Sep24TransactionResponse:
+      type: object
+      required: [transaction]
+      properties:
+        transaction:
+          $ref: "#/components/schemas/Sep24Transaction"
+
+    Sep24TransactionsResponse:
+      type: object
+      required: [transactions]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sep24Transaction"
+
+    Sep24TransactionKind:
+      type: string
+      enum: [deposit, withdrawal]
+
+    Sep24TransactionStatus:
+      type: string
+      enum:
+        - incomplete
+        - pending_user_transfer_start
+        - pending_user_transfer_complete
+        - pending_external
+        - pending_anchor
+        - on_hold
+        - pending_stellar
+        - pending_trust
+        - pending_user
+        - completed
+        - refunded
+        - expired
+        - no_market
+        - too_small
+        - too_large
+        - error
+
+    Sep24Transaction:
+      type: object
+      required: [id, kind, status, started_at]
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/Sep24TransactionKind"
+        status:
+          $ref: "#/components/schemas/Sep24TransactionStatus"
+        status_eta:
+          type: integer
+          description: Seconds until the next status change is expected.
+        kyc_verified:
+          type: boolean
+        more_info_url:
+          type: string
+        amount_in:
+          type: string
+          description: Up to 7 decimals.
+        amount_in_asset:
+          type: string
+          description: SEP-38 asset, e.g. `iso4217:CRC`.
+        amount_out:
+          type: string
+        amount_out_asset:
+          type: string
+          description: SEP-38 asset, e.g. `stellar:USDC:G...`.
+        amount_fee:
+          type: string
+          deprecated: true
+          description: Deprecated by SEP-24 in favor of `fee_details`.
+        fee_details:
+          $ref: "#/components/schemas/Sep24FeeDetails"
+        quote_id:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        user_action_required_by:
+          type: string
+          format: date-time
+        stellar_transaction_id:
+          type: string
+        external_transaction_id:
+          type: string
+        message:
+          type: string
+        deposit_memo:
+          type: string
+        deposit_memo_type:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+          description: Stellar account that receives the deposit.
+        claimable_balance_id:
+          type: string
+
+    Sep24FeeDetails:
+      type: object
+      required: [total, asset]
+      properties:
+        total:
+          type: string
+        asset:
+          type: string
+        breakdown:
+          type: array
+          items:
+            type: object
+            required: [name, amount]
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              amount:
+                type: string
