@@ -5,7 +5,7 @@ API_DIR := apps/api
 GO_TOOL := go tool -modfile=tools.mod
 GOOSE   := $(GO_TOOL) goose -dir migrations postgres "$(DATABASE_URL)"
 
-.PHONY: install db-up db-down dev-api migrate migrate-down migrate-reset migrate-status \
+.PHONY: install db-up db-down setup-testnet dev-api migrate migrate-down migrate-reset migrate-status \
 	lint lint-js lint-api lint-openapi codegen codegen-api codegen-sdk typecheck test test-js test-api vuln-api build build-js build-api
 
 install:
@@ -16,6 +16,9 @@ db-up:
 
 db-down:
 	docker compose down
+
+setup-testnet:
+	cd $(API_DIR) && go run ./cmd/setup-testnet
 
 dev-api:
 	cd $(API_DIR) && go run ./cmd/api
@@ -56,7 +59,7 @@ test-api:
 	cd $(API_DIR) && go test -race -cover ./...
 
 vuln-api:
-	cd $(API_DIR) && $(GO_TOOL) govulncheck ./...
+	$(API_DIR)/scripts/govulncheck.sh
 
 codegen: codegen-api codegen-sdk
 
