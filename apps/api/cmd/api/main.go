@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/config"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep1"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/server"
 )
 
@@ -50,9 +52,14 @@ func run() error {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 
+	stellarTOML, err := sep1.New(cfg).Encode()
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           server.New(logger, pool),
+		Handler:           server.New(logger, pool, handlers.New(stellarTOML)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

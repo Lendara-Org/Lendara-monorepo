@@ -41,9 +41,27 @@ func recoverPanics(logger *slog.Logger, next http.Handler) http.Handler {
 					panic(v)
 				}
 				logger.ErrorContext(r.Context(), "panic recovered", slog.Any("panic", v))
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+				writeError(w, http.StatusInternalServerError, "internal server error")
 			}
 		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// cors allows any origin, as SEP-1, SEP-10 and SEP-24 require for browser
+// wallets. Credentials travel in the Authorization header, never in cookies.
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", "*")
+
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			h.Set("Access-Control-Max-Age", "86400")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

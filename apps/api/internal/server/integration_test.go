@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
 )
 
 // TestHealthWithPostgres runs against a real database when TEST_DATABASE_URL is set.
@@ -22,7 +24,7 @@ func TestHealthWithPostgres(t *testing.T) {
 	}
 	t.Cleanup(pool.Close)
 
-	srv := httptest.NewServer(New(discardLogger(), pool))
+	srv := httptest.NewServer(New(discardLogger(), pool, handlers.New(nil)))
 	t.Cleanup(srv.Close)
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL+"/health", nil)
