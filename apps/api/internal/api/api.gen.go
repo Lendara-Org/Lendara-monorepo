@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AuthenticationRequiredType.
@@ -34,21 +35,42 @@ func (e AuthenticationRequiredType) Valid() bool {
 	}
 }
 
+// Defines values for FiatCurrency.
+const (
+	ARS FiatCurrency = "ARS"
+	BRL FiatCurrency = "BRL"
+	CRC FiatCurrency = "CRC"
+)
+
+// Valid indicates whether the value is a known member of the FiatCurrency enum.
+func (e FiatCurrency) Valid() bool {
+	switch e {
+	case ARS:
+		return true
+	case BRL:
+		return true
+	case CRC:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Sep24DepositRequestMemoType.
 const (
-	Hash Sep24DepositRequestMemoType = "hash"
-	Id   Sep24DepositRequestMemoType = "id"
-	Text Sep24DepositRequestMemoType = "text"
+	Sep24DepositRequestMemoTypeHash Sep24DepositRequestMemoType = "hash"
+	Sep24DepositRequestMemoTypeId   Sep24DepositRequestMemoType = "id"
+	Sep24DepositRequestMemoTypeText Sep24DepositRequestMemoType = "text"
 )
 
 // Valid indicates whether the value is a known member of the Sep24DepositRequestMemoType enum.
 func (e Sep24DepositRequestMemoType) Valid() bool {
 	switch e {
-	case Hash:
+	case Sep24DepositRequestMemoTypeHash:
 		return true
-	case Id:
+	case Sep24DepositRequestMemoTypeId:
 		return true
-	case Text:
+	case Sep24DepositRequestMemoTypeText:
 		return true
 	default:
 		return false
@@ -148,6 +170,27 @@ func (e Sep24TransactionStatus) Valid() bool {
 	}
 }
 
+// Defines values for SessionCreateRequestMemoType.
+const (
+	SessionCreateRequestMemoTypeHash SessionCreateRequestMemoType = "hash"
+	SessionCreateRequestMemoTypeId   SessionCreateRequestMemoType = "id"
+	SessionCreateRequestMemoTypeText SessionCreateRequestMemoType = "text"
+)
+
+// Valid indicates whether the value is a known member of the SessionCreateRequestMemoType enum.
+func (e SessionCreateRequestMemoType) Valid() bool {
+	switch e {
+	case SessionCreateRequestMemoTypeHash:
+		return true
+	case SessionCreateRequestMemoTypeId:
+		return true
+	case SessionCreateRequestMemoTypeText:
+		return true
+	default:
+		return false
+	}
+}
+
 // AuthenticationRequired defines model for AuthenticationRequired.
 type AuthenticationRequired struct {
 	Type AuthenticationRequiredType `json:"type"`
@@ -160,6 +203,60 @@ type AuthenticationRequiredType string
 type Error struct {
 	// Error Human-readable error, in the request's `lang` when supported.
 	Error string `json:"error"`
+}
+
+// FiatAmount Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+//
+// Example: 10000.00
+type FiatAmount = string
+
+// FiatCurrency defines model for FiatCurrency.
+type FiatCurrency string
+
+// PaymentInstructions Simulated payment instructions. No real payment is made.
+type PaymentInstructions struct {
+	Amount       string       `json:"amount"`
+	Description  string       `json:"description"`
+	FiatCurrency FiatCurrency `json:"fiat_currency"`
+	Reference    string       `json:"reference"`
+}
+
+// Project defines model for Project.
+type Project struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+}
+
+// ProjectCreateRequest defines model for ProjectCreateRequest.
+type ProjectCreateRequest struct {
+	Name string `json:"name"`
+}
+
+// ProjectCreated defines model for ProjectCreated.
+type ProjectCreated struct {
+	// ApiKey Full API key (`lnd_test_...`). Store it now; it is not shown again.
+	ApiKey  string  `json:"api_key"`
+	Project Project `json:"project"`
+}
+
+// Quote Simulated quote. Rates and fee are fictitious.
+type Quote struct {
+	// AmountIn Fiat amount the user pays.
+	AmountIn string `json:"amount_in"`
+
+	// AmountOut USDC the user receives, after the fee.
+	AmountOut string `json:"amount_out"`
+
+	// AssetCode Example: USDC
+	AssetCode string `json:"asset_code"`
+
+	// Fee Fee in USDC.
+	Fee          string       `json:"fee"`
+	FiatCurrency FiatCurrency `json:"fiat_currency"`
+
+	// Rate Fiat units per 1 USDC.
+	Rate string `json:"rate"`
 }
 
 // Sep10ChallengeResponse defines model for Sep10ChallengeResponse.
@@ -315,14 +412,89 @@ type Sep24TransactionsResponse struct {
 	Transactions []Sep24Transaction `json:"transactions"`
 }
 
+// Session defines model for Session.
+type Session struct {
+	// ExpiresAt The URL token can't be used after this time.
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Id Transaction ID.
+	Id string `json:"id"`
+
+	// Url Widget URL with a one-time token. Open it with `@lendara/widget`.
+	Url string `json:"url"`
+}
+
+// SessionCreateRequest defines model for SessionCreateRequest.
+type SessionCreateRequest struct {
+	// Account Stellar account (`G...`) that receives the USDC.
+	Account string `json:"account"`
+
+	// Amount Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+	//
+	// Example: 10000.00
+	Amount       *FiatAmount                   `json:"amount,omitempty"`
+	FiatCurrency *FiatCurrency                 `json:"fiat_currency,omitempty"`
+	Memo         *string                       `json:"memo,omitempty"`
+	MemoType     *SessionCreateRequestMemoType `json:"memo_type,omitempty"`
+}
+
+// SessionCreateRequestMemoType defines model for SessionCreateRequest.MemoType.
+type SessionCreateRequestMemoType string
+
+// TransactionList defines model for TransactionList.
+type TransactionList struct {
+	Data []Sep24Transaction `json:"data"`
+
+	// NextCursor Pass as `cursor` to get the next page. `null` on the last page.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// WidgetConfirmRequest defines model for WidgetConfirmRequest.
+type WidgetConfirmRequest struct {
+	// Amount Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+	//
+	// Example: 10000.00
+	Amount       FiatAmount   `json:"amount"`
+	FiatCurrency FiatCurrency `json:"fiat_currency"`
+}
+
+// WidgetSession defines model for WidgetSession.
+type WidgetSession struct {
+	AccessToken string    `json:"access_token"`
+	ExpiresAt   time.Time `json:"expires_at"`
+}
+
+// WidgetSessionCreateRequest defines model for WidgetSessionCreateRequest.
+type WidgetSessionCreateRequest struct {
+	// Token One-time token from the interactive URL.
+	Token         string `json:"token"`
+	TransactionId string `json:"transaction_id"`
+}
+
+// WidgetTransaction defines model for WidgetTransaction.
+type WidgetTransaction struct {
+	// PaymentInstructions Simulated payment instructions. No real payment is made.
+	PaymentInstructions *PaymentInstructions `json:"payment_instructions,omitempty"`
+
+	// Quote Simulated quote. Rates and fee are fictitious.
+	Quote       *Quote           `json:"quote,omitempty"`
+	Transaction Sep24Transaction `json:"transaction"`
+}
+
 // Lang defines model for Lang.
 type Lang = string
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// Conflict defines model for Conflict.
+type Conflict = Error
+
 // NotFound defines model for NotFound.
 type NotFound = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
 
 // GetSep10ChallengeParams defines parameters for GetSep10Challenge.
 type GetSep10ChallengeParams struct {
@@ -369,6 +541,20 @@ type GetSep24TransactionsParams struct {
 	Lang *Lang `form:"lang,omitempty" json:"lang,omitempty"`
 }
 
+// ListTransactionsParams defines parameters for ListTransactions.
+type ListTransactionsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Value of `next_cursor` from the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetWidgetQuoteParams defines parameters for GetWidgetQuote.
+type GetWidgetQuoteParams struct {
+	FiatCurrency FiatCurrency `form:"fiat_currency" json:"fiat_currency"`
+	Amount       FiatAmount   `form:"amount" json:"amount"`
+}
+
 // PostSep10TokenJSONRequestBody defines body for PostSep10Token for application/json ContentType.
 type PostSep10TokenJSONRequestBody = Sep10TokenRequest
 
@@ -383,6 +569,18 @@ type PostSep24DepositInteractiveFormdataRequestBody = Sep24DepositRequest
 
 // PostSep24DepositInteractiveMultipartRequestBody defines body for PostSep24DepositInteractive for multipart/form-data ContentType.
 type PostSep24DepositInteractiveMultipartRequestBody = Sep24DepositRequest
+
+// CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
+type CreateProjectJSONRequestBody = ProjectCreateRequest
+
+// CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
+type CreateSessionJSONRequestBody = SessionCreateRequest
+
+// CreateWidgetSessionJSONRequestBody defines body for CreateWidgetSession for application/json ContentType.
+type CreateWidgetSessionJSONRequestBody = WidgetSessionCreateRequest
+
+// ConfirmWidgetTransactionJSONRequestBody defines body for ConfirmWidgetTransaction for application/json ContentType.
+type ConfirmWidgetTransactionJSONRequestBody = WidgetConfirmRequest
 
 // Getter for additional properties for Sep24DepositRequest. Returns the specified
 // element and whether it was found
@@ -623,6 +821,36 @@ type ServerInterface interface {
 	// PostSep24DepositInteractive Start an interactive deposit
 	// (POST /sep24/transactions/deposit/interactive)
 	PostSep24DepositInteractive(w http.ResponseWriter, r *http.Request)
+	// GetProject Get the project of the API key
+	// (GET /v1/project)
+	GetProject(w http.ResponseWriter, r *http.Request)
+	// CreateProject Create a sandbox project
+	// (POST /v1/projects)
+	CreateProject(w http.ResponseWriter, r *http.Request)
+	// CreateSession Create an on-ramp session for an end user
+	// (POST /v1/sessions)
+	CreateSession(w http.ResponseWriter, r *http.Request)
+	// ListTransactions List the project's transactions
+	// (GET /v1/transactions)
+	ListTransactions(w http.ResponseWriter, r *http.Request, params ListTransactionsParams)
+	// GetTransaction Get one of the project's transactions
+	// (GET /v1/transactions/{id})
+	GetTransaction(w http.ResponseWriter, r *http.Request, id string)
+	// GetWidgetQuote Preview how much USDC the user receives
+	// (GET /widget-api/quote)
+	GetWidgetQuote(w http.ResponseWriter, r *http.Request, params GetWidgetQuoteParams)
+	// CreateWidgetSession Exchange the one-time URL token for a widget session
+	// (POST /widget-api/sessions)
+	CreateWidgetSession(w http.ResponseWriter, r *http.Request)
+	// GetWidgetTransaction Get the transaction of the widget session
+	// (GET /widget-api/transaction)
+	GetWidgetTransaction(w http.ResponseWriter, r *http.Request)
+	// ConfirmWidgetTransaction Confirm currency and amount
+	// (POST /widget-api/transaction/confirm)
+	ConfirmWidgetTransaction(w http.ResponseWriter, r *http.Request)
+	// SimulateWidgetPayment Simulate the user's fiat payment
+	// (POST /widget-api/transaction/simulate-payment)
+	SimulateWidgetPayment(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -951,6 +1179,222 @@ func (siw *ServerInterfaceWrapper) PostSep24DepositInteractive(w http.ResponseWr
 	handler.ServeHTTP(w, r)
 }
 
+// GetProject operation middleware
+func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProject operation middleware
+func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTransactions operation middleware
+func (siw *ServerInterfaceWrapper) ListTransactions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTransactionsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTransactions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTransaction operation middleware
+func (siw *ServerInterfaceWrapper) GetTransaction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTransaction(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWidgetQuote operation middleware
+func (siw *ServerInterfaceWrapper) GetWidgetQuote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWidgetQuoteParams
+
+	// ------------- Required query parameter "fiat_currency" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "fiat_currency", r.URL.Query(), &params.FiatCurrency, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "fiat_currency"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fiat_currency", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "amount" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "amount", r.URL.Query(), &params.Amount, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "amount"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "amount", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWidgetQuote(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateWidgetSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateWidgetSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWidgetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWidgetTransaction operation middleware
+func (siw *ServerInterfaceWrapper) GetWidgetTransaction(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWidgetTransaction(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmWidgetTransaction operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmWidgetTransaction(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmWidgetTransaction(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SimulateWidgetPayment operation middleware
+func (siw *ServerInterfaceWrapper) SimulateWidgetPayment(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SimulateWidgetPayment(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1078,6 +1522,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/sep24/transactions/deposit/interactive", wrapper.PostSep24DepositInteractive)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sep24/transaction", wrapper.GetSep24Transaction)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sep24/transactions", wrapper.GetSep24Transactions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/projects", wrapper.CreateProject)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/project", wrapper.GetProject)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/sessions", wrapper.CreateSession)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/transactions", wrapper.ListTransactions)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/transactions/{id}", wrapper.GetTransaction)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/widget-api/sessions", wrapper.CreateWidgetSession)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/widget-api/transaction", wrapper.GetWidgetTransaction)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/widget-api/quote", wrapper.GetWidgetQuote)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/widget-api/transaction/confirm", wrapper.ConfirmWidgetTransaction)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/widget-api/transaction/simulate-payment", wrapper.SimulateWidgetPayment)
 
 	return m
 }
@@ -1086,7 +1540,11 @@ type AuthenticationRequiredJSONResponse AuthenticationRequired
 
 type BadRequestJSONResponse Error
 
+type ConflictJSONResponse Error
+
 type NotFoundJSONResponse Error
+
+type UnauthorizedJSONResponse Error
 
 type GetStellarTomlRequestObject struct {
 }
@@ -1373,6 +1831,475 @@ func (response PostSep24DepositInteractive403JSONResponse) VisitPostSep24Deposit
 	return err
 }
 
+type GetProjectRequestObject struct {
+}
+
+type GetProjectResponseObject interface {
+	VisitGetProjectResponse(w http.ResponseWriter) error
+}
+
+type GetProject200JSONResponse Project
+
+func (response GetProject200JSONResponse) VisitGetProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProject401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetProject401JSONResponse) VisitGetProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProjectRequestObject struct {
+	Body *CreateProjectJSONRequestBody
+}
+
+type CreateProjectResponseObject interface {
+	VisitCreateProjectResponse(w http.ResponseWriter) error
+}
+
+type CreateProject201JSONResponse ProjectCreated
+
+func (response CreateProject201JSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProject400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateProject400JSONResponse) VisitCreateProjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSessionRequestObject struct {
+	Body *CreateSessionJSONRequestBody
+}
+
+type CreateSessionResponseObject interface {
+	VisitCreateSessionResponse(w http.ResponseWriter) error
+}
+
+type CreateSession201JSONResponse Session
+
+func (response CreateSession201JSONResponse) VisitCreateSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateSession400JSONResponse) VisitCreateSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateSession401JSONResponse) VisitCreateSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTransactionsRequestObject struct {
+	Params ListTransactionsParams
+}
+
+type ListTransactionsResponseObject interface {
+	VisitListTransactionsResponse(w http.ResponseWriter) error
+}
+
+type ListTransactions200JSONResponse TransactionList
+
+func (response ListTransactions200JSONResponse) VisitListTransactionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTransactions400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListTransactions400JSONResponse) VisitListTransactionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTransactions401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListTransactions401JSONResponse) VisitListTransactionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTransactionRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetTransactionResponseObject interface {
+	VisitGetTransactionResponse(w http.ResponseWriter) error
+}
+
+type GetTransaction200JSONResponse Sep24Transaction
+
+func (response GetTransaction200JSONResponse) VisitGetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTransaction401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetTransaction401JSONResponse) VisitGetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTransaction404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTransaction404JSONResponse) VisitGetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWidgetQuoteRequestObject struct {
+	Params GetWidgetQuoteParams
+}
+
+type GetWidgetQuoteResponseObject interface {
+	VisitGetWidgetQuoteResponse(w http.ResponseWriter) error
+}
+
+type GetWidgetQuote200JSONResponse Quote
+
+func (response GetWidgetQuote200JSONResponse) VisitGetWidgetQuoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWidgetQuote400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetWidgetQuote400JSONResponse) VisitGetWidgetQuoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWidgetQuote401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetWidgetQuote401JSONResponse) VisitGetWidgetQuoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWidgetSessionRequestObject struct {
+	Body *CreateWidgetSessionJSONRequestBody
+}
+
+type CreateWidgetSessionResponseObject interface {
+	VisitCreateWidgetSessionResponse(w http.ResponseWriter) error
+}
+
+type CreateWidgetSession201JSONResponse WidgetSession
+
+func (response CreateWidgetSession201JSONResponse) VisitCreateWidgetSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWidgetSession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateWidgetSession400JSONResponse) VisitCreateWidgetSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWidgetSession401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateWidgetSession401JSONResponse) VisitCreateWidgetSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWidgetTransactionRequestObject struct {
+}
+
+type GetWidgetTransactionResponseObject interface {
+	VisitGetWidgetTransactionResponse(w http.ResponseWriter) error
+}
+
+type GetWidgetTransaction200JSONResponse WidgetTransaction
+
+func (response GetWidgetTransaction200JSONResponse) VisitGetWidgetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWidgetTransaction401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetWidgetTransaction401JSONResponse) VisitGetWidgetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmWidgetTransactionRequestObject struct {
+	Body *ConfirmWidgetTransactionJSONRequestBody
+}
+
+type ConfirmWidgetTransactionResponseObject interface {
+	VisitConfirmWidgetTransactionResponse(w http.ResponseWriter) error
+}
+
+type ConfirmWidgetTransaction200JSONResponse WidgetTransaction
+
+func (response ConfirmWidgetTransaction200JSONResponse) VisitConfirmWidgetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmWidgetTransaction400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ConfirmWidgetTransaction400JSONResponse) VisitConfirmWidgetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmWidgetTransaction401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConfirmWidgetTransaction401JSONResponse) VisitConfirmWidgetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmWidgetTransaction409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ConfirmWidgetTransaction409JSONResponse) VisitConfirmWidgetTransactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SimulateWidgetPaymentRequestObject struct {
+}
+
+type SimulateWidgetPaymentResponseObject interface {
+	VisitSimulateWidgetPaymentResponse(w http.ResponseWriter) error
+}
+
+type SimulateWidgetPayment200JSONResponse WidgetTransaction
+
+func (response SimulateWidgetPayment200JSONResponse) VisitSimulateWidgetPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SimulateWidgetPayment401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SimulateWidgetPayment401JSONResponse) VisitSimulateWidgetPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SimulateWidgetPayment409JSONResponse struct{ ConflictJSONResponse }
+
+func (response SimulateWidgetPayment409JSONResponse) VisitSimulateWidgetPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// GetStellarToml Stellar info file
@@ -1396,6 +2323,36 @@ type StrictServerInterface interface {
 	// PostSep24DepositInteractive Start an interactive deposit
 	// (POST /sep24/transactions/deposit/interactive)
 	PostSep24DepositInteractive(ctx context.Context, request PostSep24DepositInteractiveRequestObject) (PostSep24DepositInteractiveResponseObject, error)
+	// GetProject Get the project of the API key
+	// (GET /v1/project)
+	GetProject(ctx context.Context, request GetProjectRequestObject) (GetProjectResponseObject, error)
+	// CreateProject Create a sandbox project
+	// (POST /v1/projects)
+	CreateProject(ctx context.Context, request CreateProjectRequestObject) (CreateProjectResponseObject, error)
+	// CreateSession Create an on-ramp session for an end user
+	// (POST /v1/sessions)
+	CreateSession(ctx context.Context, request CreateSessionRequestObject) (CreateSessionResponseObject, error)
+	// ListTransactions List the project's transactions
+	// (GET /v1/transactions)
+	ListTransactions(ctx context.Context, request ListTransactionsRequestObject) (ListTransactionsResponseObject, error)
+	// GetTransaction Get one of the project's transactions
+	// (GET /v1/transactions/{id})
+	GetTransaction(ctx context.Context, request GetTransactionRequestObject) (GetTransactionResponseObject, error)
+	// GetWidgetQuote Preview how much USDC the user receives
+	// (GET /widget-api/quote)
+	GetWidgetQuote(ctx context.Context, request GetWidgetQuoteRequestObject) (GetWidgetQuoteResponseObject, error)
+	// CreateWidgetSession Exchange the one-time URL token for a widget session
+	// (POST /widget-api/sessions)
+	CreateWidgetSession(ctx context.Context, request CreateWidgetSessionRequestObject) (CreateWidgetSessionResponseObject, error)
+	// GetWidgetTransaction Get the transaction of the widget session
+	// (GET /widget-api/transaction)
+	GetWidgetTransaction(ctx context.Context, request GetWidgetTransactionRequestObject) (GetWidgetTransactionResponseObject, error)
+	// ConfirmWidgetTransaction Confirm currency and amount
+	// (POST /widget-api/transaction/confirm)
+	ConfirmWidgetTransaction(ctx context.Context, request ConfirmWidgetTransactionRequestObject) (ConfirmWidgetTransactionResponseObject, error)
+	// SimulateWidgetPayment Simulate the user's fiat payment
+	// (POST /widget-api/transaction/simulate-payment)
+	SimulateWidgetPayment(ctx context.Context, request SimulateWidgetPaymentRequestObject) (SimulateWidgetPaymentResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1660,6 +2617,280 @@ func (sh *strictHandler) PostSep24DepositInteractive(w http.ResponseWriter, r *h
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostSep24DepositInteractiveResponseObject); ok {
 		if err := validResponse.VisitPostSep24DepositInteractiveResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetProject operation middleware
+func (sh *strictHandler) GetProject(w http.ResponseWriter, r *http.Request) {
+	var request GetProjectRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetProject(ctx, request.(GetProjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetProject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetProjectResponseObject); ok {
+		if err := validResponse.VisitGetProjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateProject operation middleware
+func (sh *strictHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
+	var request CreateProjectRequestObject
+
+	var body CreateProjectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProject(ctx, request.(CreateProjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateProjectResponseObject); ok {
+		if err := validResponse.VisitCreateProjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateSession operation middleware
+func (sh *strictHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
+	var request CreateSessionRequestObject
+
+	var body CreateSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSession(ctx, request.(CreateSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateSessionResponseObject); ok {
+		if err := validResponse.VisitCreateSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTransactions operation middleware
+func (sh *strictHandler) ListTransactions(w http.ResponseWriter, r *http.Request, params ListTransactionsParams) {
+	var request ListTransactionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTransactions(ctx, request.(ListTransactionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTransactions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTransactionsResponseObject); ok {
+		if err := validResponse.VisitListTransactionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTransaction operation middleware
+func (sh *strictHandler) GetTransaction(w http.ResponseWriter, r *http.Request, id string) {
+	var request GetTransactionRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTransaction(ctx, request.(GetTransactionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTransaction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTransactionResponseObject); ok {
+		if err := validResponse.VisitGetTransactionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWidgetQuote operation middleware
+func (sh *strictHandler) GetWidgetQuote(w http.ResponseWriter, r *http.Request, params GetWidgetQuoteParams) {
+	var request GetWidgetQuoteRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWidgetQuote(ctx, request.(GetWidgetQuoteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWidgetQuote")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWidgetQuoteResponseObject); ok {
+		if err := validResponse.VisitGetWidgetQuoteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateWidgetSession operation middleware
+func (sh *strictHandler) CreateWidgetSession(w http.ResponseWriter, r *http.Request) {
+	var request CreateWidgetSessionRequestObject
+
+	var body CreateWidgetSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWidgetSession(ctx, request.(CreateWidgetSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWidgetSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateWidgetSessionResponseObject); ok {
+		if err := validResponse.VisitCreateWidgetSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWidgetTransaction operation middleware
+func (sh *strictHandler) GetWidgetTransaction(w http.ResponseWriter, r *http.Request) {
+	var request GetWidgetTransactionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWidgetTransaction(ctx, request.(GetWidgetTransactionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWidgetTransaction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWidgetTransactionResponseObject); ok {
+		if err := validResponse.VisitGetWidgetTransactionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmWidgetTransaction operation middleware
+func (sh *strictHandler) ConfirmWidgetTransaction(w http.ResponseWriter, r *http.Request) {
+	var request ConfirmWidgetTransactionRequestObject
+
+	var body ConfirmWidgetTransactionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmWidgetTransaction(ctx, request.(ConfirmWidgetTransactionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmWidgetTransaction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmWidgetTransactionResponseObject); ok {
+		if err := validResponse.VisitConfirmWidgetTransactionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SimulateWidgetPayment operation middleware
+func (sh *strictHandler) SimulateWidgetPayment(w http.ResponseWriter, r *http.Request) {
+	var request SimulateWidgetPaymentRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SimulateWidgetPayment(ctx, request.(SimulateWidgetPaymentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SimulateWidgetPayment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SimulateWidgetPaymentResponseObject); ok {
+		if err := validResponse.VisitSimulateWidgetPaymentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

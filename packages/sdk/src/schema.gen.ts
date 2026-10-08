@@ -116,6 +116,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a sandbox project
+         * @description Returns the project and its API key. The key is shown only once.
+         */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the project of the API key */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an on-ramp session for an end user
+         * @description Creates a deposit transaction in `incomplete` status and returns the widget URL to open.
+         */
+        post: operations["createSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the project's transactions */
+        get: operations["listTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transactions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one of the project's transactions */
+        get: operations["getTransaction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/widget-api/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange the one-time URL token for a widget session
+         * @description The token from the interactive URL can be used once. The returned access token is short-lived and bound to one transaction.
+         */
+        post: operations["createWidgetSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/widget-api/transaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the transaction of the widget session */
+        get: operations["getWidgetTransaction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/widget-api/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview how much USDC the user receives
+         * @description Uses fixed, simulated exchange rates and fee.
+         */
+        get: operations["getWidgetQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/widget-api/transaction/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm currency and amount
+         * @description Moves the transaction from `incomplete` to `pending_user_transfer_start`.
+         */
+        post: operations["confirmWidgetTransaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/widget-api/transaction/simulate-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate the user's fiat payment
+         * @description The outcome depends on the amount's decimals (sandbox scenarios).
+         */
+        post: operations["simulateWidgetPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -261,6 +449,93 @@ export interface components {
                 amount: string;
             }[];
         };
+        /** @enum {string} */
+        FiatCurrency: "CRC" | "ARS" | "BRL";
+        /**
+         * @description Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+         * @example 10000.00
+         */
+        FiatAmount: string;
+        Project: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ProjectCreateRequest: {
+            name: string;
+        };
+        ProjectCreated: {
+            project: components["schemas"]["Project"];
+            /** @description Full API key (`lnd_test_...`). Store it now; it is not shown again. */
+            api_key: string;
+        };
+        SessionCreateRequest: {
+            /** @description Stellar account (`G...`) that receives the USDC. */
+            account: string;
+            fiat_currency?: components["schemas"]["FiatCurrency"];
+            amount?: components["schemas"]["FiatAmount"];
+            /** @enum {string} */
+            memo_type?: "text" | "id" | "hash";
+            memo?: string;
+        };
+        Session: {
+            /** @description Transaction ID. */
+            id: string;
+            /** @description Widget URL with a one-time token. Open it with `@lendara/widget`. */
+            url: string;
+            /**
+             * Format: date-time
+             * @description The URL token can't be used after this time.
+             */
+            expires_at: string;
+        };
+        TransactionList: {
+            data: components["schemas"]["Sep24Transaction"][];
+            /** @description Pass as `cursor` to get the next page. `null` on the last page. */
+            next_cursor?: string | null;
+        };
+        WidgetSessionCreateRequest: {
+            transaction_id: string;
+            /** @description One-time token from the interactive URL. */
+            token: string;
+        };
+        WidgetSession: {
+            access_token: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        WidgetConfirmRequest: {
+            fiat_currency: components["schemas"]["FiatCurrency"];
+            amount: components["schemas"]["FiatAmount"];
+        };
+        /** @description Simulated quote. Rates and fee are fictitious. */
+        Quote: {
+            fiat_currency: components["schemas"]["FiatCurrency"];
+            /** @description Fiat amount the user pays. */
+            amount_in: string;
+            /** @description Fiat units per 1 USDC. */
+            rate: string;
+            /** @description Fee in USDC. */
+            fee: string;
+            /** @description USDC the user receives, after the fee. */
+            amount_out: string;
+            /** @example USDC */
+            asset_code: string;
+        };
+        /** @description Simulated payment instructions. No real payment is made. */
+        PaymentInstructions: {
+            reference: string;
+            amount: string;
+            fiat_currency: components["schemas"]["FiatCurrency"];
+            description: string;
+        };
+        WidgetTransaction: {
+            transaction: components["schemas"]["Sep24Transaction"];
+            quote?: components["schemas"]["Quote"];
+            payment_instructions?: components["schemas"]["PaymentInstructions"];
+        };
     };
     responses: {
         /** @description Invalid request. */
@@ -274,6 +549,24 @@ export interface components {
         };
         /** @description Resource not found. */
         NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Missing or invalid credentials. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The transaction is not in a status that allows this action. */
+        Conflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -486,6 +779,249 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["AuthenticationRequired"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Project created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The project. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Session created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listTransactions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Value of `next_cursor` from the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transactions sorted newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sep24Transaction"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWidgetSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WidgetSessionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Widget session created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getWidgetTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction, with payment instructions once the amount is confirmed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetTransaction"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getWidgetQuote: {
+        parameters: {
+            query: {
+                fiat_currency: components["schemas"]["FiatCurrency"];
+                amount: components["schemas"]["FiatAmount"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Simulated quote. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    confirmWidgetTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WidgetConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated transaction with payment instructions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetTransaction"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    simulateWidgetPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated transaction. Poll `GET /widget-api/transaction` for progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetTransaction"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
         };
     };
 }
