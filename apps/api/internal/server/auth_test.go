@@ -29,18 +29,18 @@ func TestRequireSEP10(t *testing.T) {
 		{name: "missing token", wantStatus: http.StatusForbidden},
 		{name: "not a bearer token", authorization: "Basic " + validToken, wantStatus: http.StatusForbidden},
 		{name: "invalid token", authorization: "Bearer nope", wantStatus: http.StatusForbidden},
-		// Reaches the handler, which is not implemented yet.
-		{name: "valid token", authorization: "Bearer " + validToken, wantStatus: http.StatusNotImplemented},
+		// Reaches the handler, which rejects the paging_id before touching the database.
+		{name: "valid token", authorization: "Bearer " + validToken, wantStatus: http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New(discardLogger(), fakePinger{}, handlers.New(nil, nil), fakeAuth{})
+			h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
 			header := http.Header{}
 			if tt.authorization != "" {
 				header.Set("Authorization", tt.authorization)
 			}
 
-			rec := serve(t, h, http.MethodGet, "/sep24/transactions?asset_code=USDC", header)
+			rec := serve(t, h, http.MethodGet, "/sep24/transactions?asset_code=USDC&paging_id=bad", header)
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
@@ -60,7 +60,7 @@ func TestRequireSEP10(t *testing.T) {
 }
 
 func TestPublicEndpointsSkipSEP10(t *testing.T) {
-	h := New(discardLogger(), fakePinger{}, handlers.New(nil, nil), fakeAuth{})
+	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
 
 	rec := serve(t, h, http.MethodGet, "/sep24/info", nil)
 

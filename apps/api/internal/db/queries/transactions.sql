@@ -39,3 +39,6 @@ INSERT INTO transaction_events (transaction_id, from_status, to_status) VALUES (
 
 -- name: ListTransactionEvents :many
 SELECT * FROM transaction_events WHERE transaction_id = $1 ORDER BY id;
+
+-- name: GetTransactionByStellarID :one
+SELECT * FROM transactions WHERE stellar_transaction_id = $1 LIMIT 1;

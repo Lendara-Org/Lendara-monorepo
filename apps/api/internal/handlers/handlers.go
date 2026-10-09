@@ -6,6 +6,7 @@ import (
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/transaction"
 )
 
 // ErrNotImplemented is returned by endpoints that are not built yet.
@@ -13,13 +14,34 @@ var ErrNotImplemented = errors.New("not implemented")
 
 // Handlers implements api.StrictServerInterface.
 type Handlers struct {
-	stellarTOML string
-	sep10       *sep10.Service
+	stellarTOML  string
+	sep10        *sep10.Service
+	transactions *transaction.Store
+	webBaseURL   string
+	issuer       string
 }
 
 var _ api.StrictServerInterface = (*Handlers)(nil)
 
-// New returns the API handlers. stellarTOML is the pre-rendered SEP-1 file.
-func New(stellarTOML []byte, auth *sep10.Service) *Handlers {
-	return &Handlers{stellarTOML: string(stellarTOML), sep10: auth}
+// Config holds the dependencies of the handlers.
+type Config struct {
+	// StellarTOML is the pre-rendered SEP-1 file.
+	StellarTOML  []byte
+	SEP10        *sep10.Service
+	Transactions *transaction.Store
+	// WebBaseURL hosts the interactive widget (/widget/<id>).
+	WebBaseURL string
+	// Issuer is the public key of the USDC test asset issuer.
+	Issuer string
+}
+
+// New returns the API handlers.
+func New(cfg Config) *Handlers {
+	return &Handlers{
+		stellarTOML:  string(cfg.StellarTOML),
+		sep10:        cfg.SEP10,
+		transactions: cfg.Transactions,
+		webBaseURL:   cfg.WebBaseURL,
+		issuer:       cfg.Issuer,
+	}
 }

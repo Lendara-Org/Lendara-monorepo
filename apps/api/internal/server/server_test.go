@@ -33,7 +33,7 @@ func TestHealth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New(discardLogger(), fakePinger{err: tt.pingErr}, handlers.New(nil, nil), fakeAuth{})
+			h := New(discardLogger(), fakePinger{err: tt.pingErr}, handlers.New(handlers.Config{}), fakeAuth{})
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", nil))
 
@@ -52,7 +52,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthRejectsOtherMethods(t *testing.T) {
-	h := New(discardLogger(), fakePinger{}, handlers.New(nil, nil), fakeAuth{})
+	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/health", nil))
 
@@ -85,7 +85,7 @@ func serve(t *testing.T, h http.Handler, method, path string, header http.Header
 
 func TestStellarToml(t *testing.T) {
 	const toml = "VERSION = \"2.7.0\"\n"
-	h := New(discardLogger(), fakePinger{}, handlers.New([]byte(toml), nil), fakeAuth{})
+	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{StellarTOML: []byte(toml)}), fakeAuth{})
 
 	rec := serve(t, h, http.MethodGet, "/.well-known/stellar.toml", nil)
 
@@ -104,7 +104,7 @@ func TestStellarToml(t *testing.T) {
 }
 
 func TestCORSPreflight(t *testing.T) {
-	h := New(discardLogger(), fakePinger{}, handlers.New(nil, nil), fakeAuth{})
+	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
 
 	rec := serve(t, h, http.MethodOptions, "/auth", http.Header{
 		"Origin":                        {"https://demo-wallet.stellar.org"},
@@ -125,9 +125,9 @@ func TestCORSPreflight(t *testing.T) {
 }
 
 func TestUnimplementedEndpoint(t *testing.T) {
-	h := New(discardLogger(), fakePinger{}, handlers.New(nil, nil), fakeAuth{})
+	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
 
-	rec := serve(t, h, http.MethodGet, "/sep24/info", nil)
+	rec := serve(t, h, http.MethodGet, "/v1/project", nil)
 
 	if rec.Code != http.StatusNotImplemented {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusNotImplemented)

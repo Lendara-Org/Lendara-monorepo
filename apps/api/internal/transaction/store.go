@@ -85,6 +85,15 @@ func (s *Store) Get(ctx context.Context, id uuid.UUID) (db.Transaction, error) {
 	return t, err
 }
 
+// GetByStellarID returns the transaction paid by a Stellar transaction hash.
+func (s *Store) GetByStellarID(ctx context.Context, hash string) (db.Transaction, error) {
+	t, err := db.New(s.pool).GetTransactionByStellarID(ctx, &hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.Transaction{}, ErrNotFound
+	}
+	return t, err
+}
+
 // ListBySubject returns the transactions of a SEP-10 subject, newest first.
 func (s *Store) ListBySubject(ctx context.Context, p db.ListTransactionsBySubjectParams) ([]db.Transaction, error) {
 	return db.New(s.pool).ListTransactionsBySubject(ctx, p)

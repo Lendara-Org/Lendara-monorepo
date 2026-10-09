@@ -21,6 +21,7 @@ import (
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep1"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/server"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/transaction"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -68,9 +69,17 @@ func run() error {
 		return err
 	}
 
+	h := handlers.New(handlers.Config{
+		StellarTOML:  stellarTOML,
+		SEP10:        auth,
+		Transactions: transaction.NewStore(pool),
+		WebBaseURL:   cfg.WebBaseURL,
+		Issuer:       cfg.Stellar.IssuerPublic,
+	})
+
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           server.New(logger, pool, handlers.New(stellarTOML, auth), auth),
+		Handler:           server.New(logger, pool, h, auth),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
