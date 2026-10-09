@@ -14,10 +14,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/config"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep1"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/server"
 )
 
@@ -57,9 +59,18 @@ func run() error {
 		return err
 	}
 
+	horizon := &horizonclient.Client{
+		HorizonURL: cfg.Stellar.HorizonURL,
+		HTTP:       &http.Client{Timeout: 10 * time.Second},
+	}
+	auth, err := sep10.New(cfg, horizon)
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           server.New(logger, pool, handlers.New(stellarTOML)),
+		Handler:           server.New(logger, pool, handlers.New(stellarTOML, auth), auth),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

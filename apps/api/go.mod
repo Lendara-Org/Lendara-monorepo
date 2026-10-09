@@ -4,6 +4,7 @@ go 1.27
 
 require (
 	github.com/BurntSushi/toml v1.6.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/stellar/go-stellar-sdk v0.7.3

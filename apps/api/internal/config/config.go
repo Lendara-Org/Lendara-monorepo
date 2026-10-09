@@ -12,6 +12,9 @@ import (
 	"github.com/stellar/go-stellar-sdk/strkey"
 )
 
+// minJWTSecretLen is 32 bytes, the HS256 key size recommended by RFC 7518.
+const minJWTSecretLen = 32
+
 // Config holds the runtime configuration of the API.
 type Config struct {
 	Port        string
@@ -22,6 +25,9 @@ type Config struct {
 	APIBaseURL string
 	// WebBaseURL is the public URL of the web app (landing, docs, widget).
 	WebBaseURL string
+
+	// JWTSecret signs the SEP-10 session tokens (HS256).
+	JWTSecret []byte
 
 	Stellar Stellar
 }
@@ -92,6 +98,13 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 		return kp
 	}
+	if secret := required("SEP10_JWT_SECRET"); secret != "" {
+		if len(secret) < minJWTSecretLen {
+			errs = append(errs, fmt.Errorf("SEP10_JWT_SECRET must be at least %d characters", minJWTSecretLen))
+		}
+		cfg.JWTSecret = []byte(secret)
+	}
+
 	cfg.Stellar.Distribution = parseSeed("STELLAR_DISTRIBUTION_SECRET")
 	cfg.Stellar.Signing = parseSeed("STELLAR_SIGNING_SECRET")
 

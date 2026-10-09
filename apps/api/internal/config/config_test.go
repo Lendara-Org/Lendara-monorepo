@@ -26,6 +26,7 @@ func validEnv(t *testing.T) map[string]string {
 		"STELLAR_ISSUER_PUBLIC_KEY":   random().Address(),
 		"STELLAR_DISTRIBUTION_SECRET": random().Seed(),
 		"STELLAR_SIGNING_SECRET":      random().Seed(),
+		"SEP10_JWT_SECRET":            strings.Repeat("s", 32),
 	}
 }
 
@@ -74,10 +75,24 @@ func TestLoadReportsAllErrors(t *testing.T) {
 	for _, want := range []string{
 		"DATABASE_URL", "LOG_LEVEL", "API_BASE_URL",
 		"STELLAR_ISSUER_PUBLIC_KEY", "STELLAR_DISTRIBUTION_SECRET", "STELLAR_SIGNING_SECRET",
+		"SEP10_JWT_SECRET",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
+	}
+}
+
+func TestLoadRejectsShortJWTSecret(t *testing.T) {
+	vars := validEnv(t)
+	vars["SEP10_JWT_SECRET"] = "short-secret"
+
+	_, err := Load(env(vars))
+	if err == nil || !strings.Contains(err.Error(), "SEP10_JWT_SECRET") {
+		t.Fatalf("Load() error = %v, want SEP10_JWT_SECRET error", err)
+	}
+	if strings.Contains(err.Error(), vars["SEP10_JWT_SECRET"]) {
+		t.Errorf("error leaks the secret value: %q", err)
 	}
 }
 

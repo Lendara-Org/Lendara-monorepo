@@ -18,11 +18,11 @@ type Pinger interface {
 }
 
 // New returns the root HTTP handler of the API.
-func New(logger *slog.Logger, db Pinger, h api.StrictServerInterface) http.Handler {
+func New(logger *slog.Logger, db Pinger, h api.StrictServerInterface, auth Authenticator) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health(logger, db))
 
-	strict := api.NewStrictHandlerWithOptions(h, nil, api.StrictHTTPServerOptions{
+	strict := api.NewStrictHandlerWithOptions(h, []api.StrictMiddlewareFunc{requireSEP10(auth)}, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: responseError(logger),
 	})
