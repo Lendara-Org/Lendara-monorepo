@@ -34,26 +34,6 @@ func (*Handlers) GetTransaction(_ context.Context, _ api.GetTransactionRequestOb
 	return nil, ErrNotImplemented
 }
 
-// GetWidgetQuote is not implemented yet.
-func (*Handlers) GetWidgetQuote(_ context.Context, _ api.GetWidgetQuoteRequestObject) (api.GetWidgetQuoteResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// CreateWidgetSession is not implemented yet.
-func (*Handlers) CreateWidgetSession(_ context.Context, _ api.CreateWidgetSessionRequestObject) (api.CreateWidgetSessionResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// GetWidgetTransaction is not implemented yet.
-func (*Handlers) GetWidgetTransaction(_ context.Context, _ api.GetWidgetTransactionRequestObject) (api.GetWidgetTransactionResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// ConfirmWidgetTransaction is not implemented yet.
-func (*Handlers) ConfirmWidgetTransaction(_ context.Context, _ api.ConfirmWidgetTransactionRequestObject) (api.ConfirmWidgetTransactionResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
 // SimulateWidgetPayment is not implemented yet.
 func (*Handlers) SimulateWidgetPayment(_ context.Context, _ api.SimulateWidgetPaymentRequestObject) (api.SimulateWidgetPaymentResponseObject, error) {
 	return nil, ErrNotImplemented

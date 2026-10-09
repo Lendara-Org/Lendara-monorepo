@@ -38,7 +38,7 @@ func sep10Server(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("sep10.New() error = %v", err)
 	}
-	return New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{SEP10: auth}), auth)
+	return New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{SEP10: auth}), Auth{SEP10: auth})
 }
 
 func decode(t *testing.T, rec *httptest.ResponseRecorder, v any) {

@@ -24,7 +24,7 @@ func TestHealthWithPostgres(t *testing.T) {
 	}
 	t.Cleanup(pool.Close)
 
-	srv := httptest.NewServer(New(discardLogger(), pool, handlers.New(handlers.Config{}), fakeAuth{}))
+	srv := httptest.NewServer(New(discardLogger(), pool, handlers.New(handlers.Config{}), Auth{SEP10: fakeAuth{}}))
 	t.Cleanup(srv.Close)
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL+"/health", nil)

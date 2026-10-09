@@ -19,6 +19,7 @@ import (
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/transaction"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/widgetauth"
 )
 
 const testWebBaseURL = "https://web.lendara.test"
@@ -37,6 +38,7 @@ func (subjectAuth) Verify(token string) (string, error) {
 type sep24Env struct {
 	h      http.Handler
 	store  *transaction.Store
+	widget *widgetauth.Issuer
 	issuer string
 }
 
@@ -53,12 +55,17 @@ func newSEP24Env(t *testing.T) sep24Env {
 	}
 	t.Cleanup(pool.Close)
 
-	env := sep24Env{store: transaction.NewStore(pool), issuer: keypair.MustRandom().Address()}
+	env := sep24Env{
+		store:  transaction.NewStore(pool),
+		widget: widgetauth.New("https://api.lendara.test", []byte(strings.Repeat("s", 32))),
+		issuer: keypair.MustRandom().Address(),
+	}
 	env.h = New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{
 		Transactions: env.store,
+		Widget:       env.widget,
 		WebBaseURL:   testWebBaseURL,
 		Issuer:       env.issuer,
-	}), subjectAuth{})
+	}), Auth{SEP10: subjectAuth{}, Widget: env.widget})
 	return env
 }
 
@@ -98,7 +105,7 @@ func (e sep24Env) transaction(t *testing.T, subject, id string) (int, api.Sep24T
 }
 
 func TestSEP24Info(t *testing.T) {
-	rec := serve(t, New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{}),
+	rec := serve(t, New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), Auth{SEP10: fakeAuth{}}),
 		http.MethodGet, "/sep24/info", nil)
 
 	if rec.Code != http.StatusOK {
