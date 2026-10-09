@@ -5,3 +5,4 @@ pnpm-lock.yaml linguist-generated=true
 apps/api/go.sum linguist-generated=true
 apps/api/tools.mod linguist-generated=true
 apps/api/tools.sum linguist-generated=true
+apps/api/internal/db/*.go linguist-generated=true

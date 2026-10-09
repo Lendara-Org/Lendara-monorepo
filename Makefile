@@ -65,6 +65,7 @@ codegen: codegen-api codegen-sdk
 
 codegen-api:
 	cd $(API_DIR) && $(GO_TOOL) oapi-codegen -config oapi-codegen.yaml ../../openapi.yaml
+	cd $(API_DIR) && $(GO_TOOL) sqlc generate
 
 codegen-sdk:
 	pnpm --filter @lendara/sdk codegen
