@@ -33,8 +33,3 @@ func (*Handlers) ListTransactions(_ context.Context, _ api.ListTransactionsReque
 func (*Handlers) GetTransaction(_ context.Context, _ api.GetTransactionRequestObject) (api.GetTransactionResponseObject, error) {
 	return nil, ErrNotImplemented
 }
-
-// SimulateWidgetPayment is not implemented yet.
-func (*Handlers) SimulateWidgetPayment(_ context.Context, _ api.SimulateWidgetPaymentRequestObject) (api.SimulateWidgetPaymentResponseObject, error) {
-	return nil, ErrNotImplemented
-}
