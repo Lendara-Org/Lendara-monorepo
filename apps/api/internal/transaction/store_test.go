@@ -72,7 +72,7 @@ func TestStoreTransition(t *testing.T) {
 
 	path := []Status{StatusPendingUserTransferStart, StatusPendingAnchor, StatusPendingStellar, StatusCompleted}
 	for _, to := range path {
-		if _, err := s.Transition(ctx, created.ID, to, nil); err != nil {
+		if _, err := s.Transition(ctx, created.ID, to, Update{}); err != nil {
 			t.Fatalf("Transition(%s) error = %v", to, err)
 		}
 	}
@@ -85,10 +85,10 @@ func TestStoreTransition(t *testing.T) {
 		t.Errorf("status = %s, completed_at = %v; want completed with a timestamp", done.Status, done.CompletedAt)
 	}
 
-	if _, err := s.Transition(ctx, created.ID, StatusError, ptr("too late")); !errors.Is(err, ErrInvalidTransition) {
+	if _, err := s.Transition(ctx, created.ID, StatusError, Update{Message: ptr("too late")}); !errors.Is(err, ErrInvalidTransition) {
 		t.Errorf("Transition(completed -> error) error = %v, want ErrInvalidTransition", err)
 	}
-	if _, err := s.Transition(ctx, uuid.New(), StatusError, nil); !errors.Is(err, ErrNotFound) {
+	if _, err := s.Transition(ctx, uuid.New(), StatusError, Update{}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Transition(unknown) error = %v, want ErrNotFound", err)
 	}
 
@@ -130,6 +130,56 @@ func TestStoreConfirm(t *testing.T) {
 	}
 	if got, _ := s.Get(ctx, created.ID); *got.FiatCurrency != "CRC" {
 		t.Errorf("fiat_currency = %s after rejected confirm, want CRC", *got.FiatCurrency)
+	}
+}
+
+func TestStoreListDue(t *testing.T) {
+	s := newStore(t)
+	ctx := t.Context()
+	due, later := createDeposit(t, s, keypair.MustRandom().Address()), createDeposit(t, s, keypair.MustRandom().Address())
+	for _, tx := range []db.Transaction{due, later} {
+		if _, err := s.Transition(ctx, tx.ID, StatusPendingUserTransferStart, Update{}); err != nil {
+			t.Fatalf("Transition() error = %v", err)
+		}
+	}
+	past, future := time.Now().Add(-time.Second), time.Now().Add(time.Hour)
+	if _, err := s.Transition(ctx, due.ID, StatusPendingAnchor, Update{NextAttemptAt: &past, Scenario: ptr("approved")}); err != nil {
+		t.Fatalf("Transition() error = %v", err)
+	}
+	if _, err := s.Transition(ctx, later.ID, StatusPendingAnchor, Update{NextAttemptAt: &future}); err != nil {
+		t.Fatalf("Transition() error = %v", err)
+	}
+
+	isDue := func(id uuid.UUID) bool {
+		t.Helper()
+		list, err := s.ListDue(ctx, 1000)
+		if err != nil {
+			t.Fatalf("ListDue() error = %v", err)
+		}
+		for _, tx := range list {
+			if tx.ID == id {
+				return true
+			}
+		}
+		return false
+	}
+	if !isDue(due.ID) || isDue(later.ID) {
+		t.Errorf("due = %v, later = %v; want only the past attempt", isDue(due.ID), isDue(later.ID))
+	}
+	if err := s.Reschedule(ctx, due.ID, future); err != nil {
+		t.Fatalf("Reschedule() error = %v", err)
+	}
+	if isDue(due.ID) {
+		t.Error("rescheduled transaction is still due")
+	}
+
+	// Scenario is kept when a later update leaves it nil.
+	got, err := s.Transition(ctx, due.ID, StatusError, Update{})
+	if err != nil {
+		t.Fatalf("Transition() error = %v", err)
+	}
+	if got.Scenario == nil || *got.Scenario != "approved" || got.NextAttemptAt != nil {
+		t.Errorf("scenario, next_attempt_at = %v, %v; want kept and cleared", got.Scenario, got.NextAttemptAt)
 	}
 }
 

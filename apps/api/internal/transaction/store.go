@@ -99,11 +99,31 @@ func (s *Store) ListBySubject(ctx context.Context, p db.ListTransactionsBySubjec
 	return db.New(s.pool).ListTransactionsBySubject(ctx, p)
 }
 
+// Update holds the fields that may change together with the status.
+type Update struct {
+	// Message is shown to the user (SEP-24 `message`); nil clears it.
+	Message *string
+	// NextAttemptAt schedules the payment worker; nil clears it.
+	NextAttemptAt *time.Time
+	// Scenario and StellarTransactionID are kept when nil.
+	Scenario             *string
+	StellarTransactionID *string
+}
+
 // Transition moves a transaction to a new status, validating it against the
-// state machine and recording the change in transaction_events. message is
-// shown to the user (SEP-24 `message`); nil clears it.
-func (s *Store) Transition(ctx context.Context, id uuid.UUID, to Status, message *string) (db.Transaction, error) {
-	return s.transition(ctx, id, to, message, nil)
+// state machine and recording the change in transaction_events.
+func (s *Store) Transition(ctx context.Context, id uuid.UUID, to Status, u Update) (db.Transaction, error) {
+	return s.transition(ctx, id, to, u, nil)
+}
+
+// ListDue returns up to limit transactions whose next payment attempt is due.
+func (s *Store) ListDue(ctx context.Context, limit int32) ([]db.Transaction, error) {
+	return db.New(s.pool).ListDueTransactions(ctx, limit)
+}
+
+// Reschedule sets the next payment attempt without changing the status.
+func (s *Store) Reschedule(ctx context.Context, id uuid.UUID, at time.Time) error {
+	return db.New(s.pool).SetNextAttempt(ctx, db.SetNextAttemptParams{ID: id, NextAttemptAt: &at})
 }
 
 // Quote holds the amounts of a confirmed deposit: fiat in, USDC out and fee.
@@ -117,7 +137,7 @@ type Quote struct {
 // Confirm stores the quote the user accepted and moves the deposit from
 // incomplete to pending_user_transfer_start.
 func (s *Store) Confirm(ctx context.Context, id uuid.UUID, q Quote) (db.Transaction, error) {
-	return s.transition(ctx, id, StatusPendingUserTransferStart, nil, func(tx *db.Queries) error {
+	return s.transition(ctx, id, StatusPendingUserTransferStart, Update{}, func(tx *db.Queries) error {
 		return tx.SetTransactionQuote(ctx, db.SetTransactionQuoteParams{
 			ID:           id,
 			FiatCurrency: &q.FiatCurrency,
@@ -130,7 +150,7 @@ func (s *Store) Confirm(ctx context.Context, id uuid.UUID, q Quote) (db.Transact
 
 // transition locks the transaction, validates the move, runs update (if any)
 // and changes the status, all in one database transaction.
-func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, message *string, update func(*db.Queries) error) (db.Transaction, error) {
+func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, u Update, update func(*db.Queries) error) (db.Transaction, error) {
 	var updated db.Transaction
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := db.New(tx)
@@ -150,9 +170,12 @@ func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, message
 			}
 		}
 		updated, err = q.UpdateTransactionStatus(ctx, db.UpdateTransactionStatusParams{
-			ID:      id,
-			Status:  string(to),
-			Message: message,
+			ID:                   id,
+			Status:               string(to),
+			Message:              u.Message,
+			NextAttemptAt:        u.NextAttemptAt,
+			Scenario:             u.Scenario,
+			StellarTransactionID: u.StellarTransactionID,
 		})
 		if err != nil {
 			return fmt.Errorf("update status: %w", err)

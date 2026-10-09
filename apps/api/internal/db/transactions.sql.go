@@ -19,7 +19,7 @@ INSERT INTO transactions (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
-RETURNING id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at
+RETURNING id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at
 `
 
 type CreateTransactionParams struct {
@@ -69,6 +69,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.StartedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.NextAttemptAt,
 	)
 	return i, err
 }
@@ -89,7 +90,7 @@ func (q *Queries) CreateTransactionEvent(ctx context.Context, arg CreateTransact
 }
 
 const getTransaction = `-- name: GetTransaction :one
-SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at FROM transactions WHERE id = $1
+SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at FROM transactions WHERE id = $1
 `
 
 func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
@@ -115,12 +116,13 @@ func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction
 		&i.StartedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.NextAttemptAt,
 	)
 	return i, err
 }
 
 const getTransactionByStellarID = `-- name: GetTransactionByStellarID :one
-SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at FROM transactions WHERE stellar_transaction_id = $1 LIMIT 1
+SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at FROM transactions WHERE stellar_transaction_id = $1 LIMIT 1
 `
 
 func (q *Queries) GetTransactionByStellarID(ctx context.Context, stellarTransactionID *string) (Transaction, error) {
@@ -146,12 +148,13 @@ func (q *Queries) GetTransactionByStellarID(ctx context.Context, stellarTransact
 		&i.StartedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.NextAttemptAt,
 	)
 	return i, err
 }
 
 const getTransactionForUpdate = `-- name: GetTransactionForUpdate :one
-SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at FROM transactions WHERE id = $1 FOR UPDATE
+SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at FROM transactions WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetTransactionForUpdate(ctx context.Context, id uuid.UUID) (Transaction, error) {
@@ -177,8 +180,58 @@ func (q *Queries) GetTransactionForUpdate(ctx context.Context, id uuid.UUID) (Tr
 		&i.StartedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.NextAttemptAt,
 	)
 	return i, err
+}
+
+const listDueTransactions = `-- name: ListDueTransactions :many
+SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at FROM transactions
+WHERE status IN ('pending_anchor', 'pending_trust') AND next_attempt_at <= now()
+ORDER BY next_attempt_at
+LIMIT $1
+`
+
+// Transactions waiting for the payment worker, oldest first.
+func (q *Queries) ListDueTransactions(ctx context.Context, maxResults int32) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, listDueTransactions, maxResults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.Status,
+			&i.AssetCode,
+			&i.Sep10Subject,
+			&i.StellarAccount,
+			&i.Memo,
+			&i.MemoType,
+			&i.FiatCurrency,
+			&i.AmountIn,
+			&i.AmountOut,
+			&i.AmountFee,
+			&i.Scenario,
+			&i.StellarTransactionID,
+			&i.Message,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+			&i.NextAttemptAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTransactionEvents = `-- name: ListTransactionEvents :many
@@ -212,7 +265,7 @@ func (q *Queries) ListTransactionEvents(ctx context.Context, transactionID uuid.
 }
 
 const listTransactionsBySubject = `-- name: ListTransactionsBySubject :many
-SELECT t.id, t.project_id, t.kind, t.status, t.asset_code, t.sep10_subject, t.stellar_account, t.memo, t.memo_type, t.fiat_currency, t.amount_in, t.amount_out, t.amount_fee, t.scenario, t.stellar_transaction_id, t.message, t.started_at, t.updated_at, t.completed_at FROM transactions t
+SELECT t.id, t.project_id, t.kind, t.status, t.asset_code, t.sep10_subject, t.stellar_account, t.memo, t.memo_type, t.fiat_currency, t.amount_in, t.amount_out, t.amount_fee, t.scenario, t.stellar_transaction_id, t.message, t.started_at, t.updated_at, t.completed_at, t.next_attempt_at FROM transactions t
 WHERE t.sep10_subject = $1
   AND t.asset_code = $2
   AND ($3::text IS NULL OR t.kind = $3)
@@ -269,6 +322,7 @@ func (q *Queries) ListTransactionsBySubject(ctx context.Context, arg ListTransac
 			&i.StartedAt,
 			&i.UpdatedAt,
 			&i.CompletedAt,
+			&i.NextAttemptAt,
 		); err != nil {
 			return nil, err
 		}
@@ -278,6 +332,20 @@ func (q *Queries) ListTransactionsBySubject(ctx context.Context, arg ListTransac
 		return nil, err
 	}
 	return items, nil
+}
+
+const setNextAttempt = `-- name: SetNextAttempt :exec
+UPDATE transactions SET next_attempt_at = $2, updated_at = now() WHERE id = $1
+`
+
+type SetNextAttemptParams struct {
+	ID            uuid.UUID
+	NextAttemptAt *time.Time
+}
+
+func (q *Queries) SetNextAttempt(ctx context.Context, arg SetNextAttemptParams) error {
+	_, err := q.db.Exec(ctx, setNextAttempt, arg.ID, arg.NextAttemptAt)
+	return err
 }
 
 const setTransactionQuote = `-- name: SetTransactionQuote :exec
@@ -307,22 +375,37 @@ func (q *Queries) SetTransactionQuote(ctx context.Context, arg SetTransactionQuo
 
 const updateTransactionStatus = `-- name: UpdateTransactionStatus :one
 UPDATE transactions
-SET status       = $1,
-    message      = $2,
-    updated_at   = now(),
-    completed_at = CASE WHEN $1 = 'completed' THEN now() ELSE completed_at END
-WHERE id = $3
-RETURNING id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at
+SET status                 = $1,
+    message                = $2,
+    next_attempt_at        = $3,
+    scenario               = coalesce($4, scenario),
+    stellar_transaction_id = coalesce($5, stellar_transaction_id),
+    updated_at             = now(),
+    completed_at           = CASE WHEN $1 = 'completed' THEN now() ELSE completed_at END
+WHERE id = $6
+RETURNING id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at
 `
 
 type UpdateTransactionStatusParams struct {
-	Status  string
-	Message *string
-	ID      uuid.UUID
+	Status               string
+	Message              *string
+	NextAttemptAt        *time.Time
+	Scenario             *string
+	StellarTransactionID *string
+	ID                   uuid.UUID
 }
 
+// message and next_attempt_at are replaced (NULL clears them); scenario and
+// stellar_transaction_id are kept when NULL.
 func (q *Queries) UpdateTransactionStatus(ctx context.Context, arg UpdateTransactionStatusParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, updateTransactionStatus, arg.Status, arg.Message, arg.ID)
+	row := q.db.QueryRow(ctx, updateTransactionStatus,
+		arg.Status,
+		arg.Message,
+		arg.NextAttemptAt,
+		arg.Scenario,
+		arg.StellarTransactionID,
+		arg.ID,
+	)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
@@ -344,6 +427,7 @@ func (q *Queries) UpdateTransactionStatus(ctx context.Context, arg UpdateTransac
 		&i.StartedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+		&i.NextAttemptAt,
 	)
 	return i, err
 }

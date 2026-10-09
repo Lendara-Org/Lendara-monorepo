@@ -43,6 +43,7 @@ type Transaction struct {
 	StartedAt            time.Time
 	UpdatedAt            time.Time
 	CompletedAt          *time.Time
+	NextAttemptAt        *time.Time
 }
 
 type TransactionEvent struct {
