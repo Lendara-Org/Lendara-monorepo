@@ -119,6 +119,37 @@ func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction
 	return i, err
 }
 
+const getTransactionByStellarID = `-- name: GetTransactionByStellarID :one
+SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at FROM transactions WHERE stellar_transaction_id = $1 LIMIT 1
+`
+
+func (q *Queries) GetTransactionByStellarID(ctx context.Context, stellarTransactionID *string) (Transaction, error) {
+	row := q.db.QueryRow(ctx, getTransactionByStellarID, stellarTransactionID)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Kind,
+		&i.Status,
+		&i.AssetCode,
+		&i.Sep10Subject,
+		&i.StellarAccount,
+		&i.Memo,
+		&i.MemoType,
+		&i.FiatCurrency,
+		&i.AmountIn,
+		&i.AmountOut,
+		&i.AmountFee,
+		&i.Scenario,
+		&i.StellarTransactionID,
+		&i.Message,
+		&i.StartedAt,
+		&i.UpdatedAt,
+		&i.CompletedAt,
+	)
+	return i, err
+}
+
 const getTransactionForUpdate = `-- name: GetTransactionForUpdate :one
 SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at FROM transactions WHERE id = $1 FOR UPDATE
 `
