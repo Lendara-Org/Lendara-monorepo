@@ -34,7 +34,7 @@ func TestRequireSEP10(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
+			h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), Auth{SEP10: fakeAuth{}})
 			header := http.Header{}
 			if tt.authorization != "" {
 				header.Set("Authorization", tt.authorization)
@@ -60,7 +60,7 @@ func TestRequireSEP10(t *testing.T) {
 }
 
 func TestPublicEndpointsSkipSEP10(t *testing.T) {
-	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), fakeAuth{})
+	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), Auth{SEP10: fakeAuth{}})
 
 	rec := serve(t, h, http.MethodGet, "/sep24/info", nil)
 

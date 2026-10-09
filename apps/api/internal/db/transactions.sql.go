@@ -280,6 +280,31 @@ func (q *Queries) ListTransactionsBySubject(ctx context.Context, arg ListTransac
 	return items, nil
 }
 
+const setTransactionQuote = `-- name: SetTransactionQuote :exec
+UPDATE transactions
+SET fiat_currency = $2, amount_in = $3, amount_out = $4, amount_fee = $5, updated_at = now()
+WHERE id = $1
+`
+
+type SetTransactionQuoteParams struct {
+	ID           uuid.UUID
+	FiatCurrency *string
+	AmountIn     *string
+	AmountOut    *string
+	AmountFee    *string
+}
+
+func (q *Queries) SetTransactionQuote(ctx context.Context, arg SetTransactionQuoteParams) error {
+	_, err := q.db.Exec(ctx, setTransactionQuote,
+		arg.ID,
+		arg.FiatCurrency,
+		arg.AmountIn,
+		arg.AmountOut,
+		arg.AmountFee,
+	)
+	return err
+}
+
 const updateTransactionStatus = `-- name: UpdateTransactionStatus :one
 UPDATE transactions
 SET status       = $1,

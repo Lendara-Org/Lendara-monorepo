@@ -22,6 +22,7 @@ import (
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/server"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/transaction"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/widgetauth"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -69,17 +70,19 @@ func run() error {
 		return err
 	}
 
+	widget := widgetauth.New(cfg.APIBaseURL, cfg.JWTSecret)
 	h := handlers.New(handlers.Config{
 		StellarTOML:  stellarTOML,
 		SEP10:        auth,
 		Transactions: transaction.NewStore(pool),
+		Widget:       widget,
 		WebBaseURL:   cfg.WebBaseURL,
 		Issuer:       cfg.Stellar.IssuerPublic,
 	})
 
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           server.New(logger, pool, h, auth),
+		Handler:           server.New(logger, pool, h, server.Auth{SEP10: auth, Widget: widget}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

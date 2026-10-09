@@ -19,15 +19,16 @@ import (
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/db"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sandbox"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/transaction"
 )
 
-// SEP-24 deposit settings of the sandbox. Amounts are in USDC.
+// SEP-24 settings of the sandbox. Asset and limits live in package sandbox.
 const (
-	assetCode          = "USDC"
-	depositMinAmount   = 1.0
-	depositMaxAmount   = 10000.0
+	assetCode          = sandbox.AssetCode
+	depositMinAmount   = float64(sandbox.MinDeposit)
+	depositMaxAmount   = float64(sandbox.MaxDeposit)
 	interactiveURLTTL  = 15 * time.Minute
 	defaultListLimit   = 50
 	maxListLimit       = 200

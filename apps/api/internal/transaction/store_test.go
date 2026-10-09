@@ -107,6 +107,32 @@ func TestStoreTransition(t *testing.T) {
 	}
 }
 
+func TestStoreConfirm(t *testing.T) {
+	s := newStore(t)
+	ctx := t.Context()
+	created := createDeposit(t, s, keypair.MustRandom().Address())
+	quote := Quote{FiatCurrency: "CRC", AmountIn: "10000.00", AmountOut: "19.1078431", AmountFee: "0.50"}
+
+	confirmed, err := s.Confirm(ctx, created.ID, quote)
+	if err != nil {
+		t.Fatalf("Confirm() error = %v", err)
+	}
+	if confirmed.Status != string(StatusPendingUserTransferStart) {
+		t.Errorf("status = %s, want pending_user_transfer_start", confirmed.Status)
+	}
+	if *confirmed.FiatCurrency != "CRC" || *confirmed.AmountOut != "19.1078431" || *confirmed.AmountFee != "0.5000000" {
+		t.Errorf("quote = %s %s %s, want stored", *confirmed.FiatCurrency, *confirmed.AmountOut, *confirmed.AmountFee)
+	}
+
+	// A second confirmation is an invalid transition and changes nothing.
+	if _, err := s.Confirm(ctx, created.ID, Quote{FiatCurrency: "BRL", AmountIn: "1", AmountOut: "1", AmountFee: "0"}); !errors.Is(err, ErrInvalidTransition) {
+		t.Errorf("second Confirm() error = %v, want ErrInvalidTransition", err)
+	}
+	if got, _ := s.Get(ctx, created.ID); *got.FiatCurrency != "CRC" {
+		t.Errorf("fiat_currency = %s after rejected confirm, want CRC", *got.FiatCurrency)
+	}
+}
+
 func TestStoreListBySubject(t *testing.T) {
 	s := newStore(t)
 	ctx := t.Context()

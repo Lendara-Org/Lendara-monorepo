@@ -103,6 +103,34 @@ func (s *Store) ListBySubject(ctx context.Context, p db.ListTransactionsBySubjec
 // state machine and recording the change in transaction_events. message is
 // shown to the user (SEP-24 `message`); nil clears it.
 func (s *Store) Transition(ctx context.Context, id uuid.UUID, to Status, message *string) (db.Transaction, error) {
+	return s.transition(ctx, id, to, message, nil)
+}
+
+// Quote holds the amounts of a confirmed deposit: fiat in, USDC out and fee.
+type Quote struct {
+	FiatCurrency string
+	AmountIn     string
+	AmountOut    string
+	AmountFee    string
+}
+
+// Confirm stores the quote the user accepted and moves the deposit from
+// incomplete to pending_user_transfer_start.
+func (s *Store) Confirm(ctx context.Context, id uuid.UUID, q Quote) (db.Transaction, error) {
+	return s.transition(ctx, id, StatusPendingUserTransferStart, nil, func(tx *db.Queries) error {
+		return tx.SetTransactionQuote(ctx, db.SetTransactionQuoteParams{
+			ID:           id,
+			FiatCurrency: &q.FiatCurrency,
+			AmountIn:     &q.AmountIn,
+			AmountOut:    &q.AmountOut,
+			AmountFee:    &q.AmountFee,
+		})
+	})
+}
+
+// transition locks the transaction, validates the move, runs update (if any)
+// and changes the status, all in one database transaction.
+func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, message *string, update func(*db.Queries) error) (db.Transaction, error) {
 	var updated db.Transaction
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := db.New(tx)
@@ -115,6 +143,11 @@ func (s *Store) Transition(ctx context.Context, id uuid.UUID, to Status, message
 		}
 		if err := CheckTransition(Status(current.Status), to); err != nil {
 			return err
+		}
+		if update != nil {
+			if err := update(q); err != nil {
+				return fmt.Errorf("update transaction: %w", err)
+			}
 		}
 		updated, err = q.UpdateTransactionStatus(ctx, db.UpdateTransactionStatusParams{
 			ID:      id,
