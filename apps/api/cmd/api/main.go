@@ -18,6 +18,7 @@ import (
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/config"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/payment"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep1"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/server"
@@ -63,18 +64,21 @@ func run() error {
 
 	horizon := &horizonclient.Client{
 		HorizonURL: cfg.Stellar.HorizonURL,
-		HTTP:       &http.Client{Timeout: 10 * time.Second},
+		HTTP:       &http.Client{Timeout: 30 * time.Second}, // submitting a transaction can take a while
 	}
 	auth, err := sep10.New(cfg, horizon)
 	if err != nil {
 		return err
 	}
 
+	transactions := transaction.NewStore(pool)
+	go payment.New(transactions, horizon, cfg.Stellar.Distribution, cfg.Stellar.IssuerPublic, logger).Run(ctx)
+
 	widget := widgetauth.New(cfg.APIBaseURL, cfg.JWTSecret)
 	h := handlers.New(handlers.Config{
 		StellarTOML:  stellarTOML,
 		SEP10:        auth,
-		Transactions: transaction.NewStore(pool),
+		Transactions: transactions,
 		Widget:       widget,
 		WebBaseURL:   cfg.WebBaseURL,
 		Issuer:       cfg.Stellar.IssuerPublic,
