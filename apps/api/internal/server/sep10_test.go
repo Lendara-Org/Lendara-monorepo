@@ -38,7 +38,7 @@ func sep10Server(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("sep10.New() error = %v", err)
 	}
-	return New(discardLogger(), fakePinger{}, handlers.New(nil, auth), auth)
+	return New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{SEP10: auth}), auth)
 }
 
 func decode(t *testing.T, rec *httptest.ResponseRecorder, v any) {
@@ -90,10 +90,11 @@ func TestSEP10Flow(t *testing.T) {
 			var token struct{ Token string }
 			decode(t, rec, &token)
 
-			rec = serve(t, h, http.MethodGet, "/sep24/transactions?asset_code=USDC",
+			// A 400 for the bad paging_id means the JWT was accepted.
+			rec = serve(t, h, http.MethodGet, "/sep24/transactions?asset_code=USDC&paging_id=bad",
 				http.Header{"Authorization": {"Bearer " + token.Token}})
-			if rec.Code != http.StatusNotImplemented {
-				t.Errorf("authenticated SEP-24 request status = %d, want %d", rec.Code, http.StatusNotImplemented)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("authenticated SEP-24 request status = %d, want %d", rec.Code, http.StatusBadRequest)
 			}
 		})
 	}

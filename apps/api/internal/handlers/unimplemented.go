@@ -9,26 +9,6 @@ import (
 // Endpoints below are defined in openapi.yaml but not implemented yet.
 // Each one moves to its own file when its PR lands.
 
-// GetSep24Info is not implemented yet.
-func (*Handlers) GetSep24Info(_ context.Context, _ api.GetSep24InfoRequestObject) (api.GetSep24InfoResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// GetSep24Transaction is not implemented yet.
-func (*Handlers) GetSep24Transaction(_ context.Context, _ api.GetSep24TransactionRequestObject) (api.GetSep24TransactionResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// GetSep24Transactions is not implemented yet.
-func (*Handlers) GetSep24Transactions(_ context.Context, _ api.GetSep24TransactionsRequestObject) (api.GetSep24TransactionsResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// PostSep24DepositInteractive is not implemented yet.
-func (*Handlers) PostSep24DepositInteractive(_ context.Context, _ api.PostSep24DepositInteractiveRequestObject) (api.PostSep24DepositInteractiveResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
 // GetProject is not implemented yet.
 func (*Handlers) GetProject(_ context.Context, _ api.GetProjectRequestObject) (api.GetProjectResponseObject, error) {
 	return nil, ErrNotImplemented
