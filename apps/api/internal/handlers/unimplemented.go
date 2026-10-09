@@ -9,16 +9,6 @@ import (
 // Endpoints below are defined in openapi.yaml but not implemented yet.
 // Each one moves to its own file when its PR lands.
 
-// GetSep10Challenge is not implemented yet.
-func (*Handlers) GetSep10Challenge(_ context.Context, _ api.GetSep10ChallengeRequestObject) (api.GetSep10ChallengeResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
-// PostSep10Token is not implemented yet.
-func (*Handlers) PostSep10Token(_ context.Context, _ api.PostSep10TokenRequestObject) (api.PostSep10TokenResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
 // GetSep24Info is not implemented yet.
 func (*Handlers) GetSep24Info(_ context.Context, _ api.GetSep24InfoRequestObject) (api.GetSep24InfoResponseObject, error) {
 	return nil, ErrNotImplemented
