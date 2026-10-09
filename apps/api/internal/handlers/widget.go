@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/db"
@@ -94,6 +95,45 @@ func (h *Handlers) ConfirmWidgetTransaction(ctx context.Context, req api.Confirm
 		return nil, err
 	}
 	return api.ConfirmWidgetTransaction200JSONResponse(h.widgetView(t)), nil
+}
+
+// SimulateWidgetPayment simulates the user's fiat payment. The decimals of
+// the amount pick the sandbox scenario; approved deposits are paid on Stellar
+// by the payment worker.
+func (h *Handlers) SimulateWidgetPayment(ctx context.Context, _ api.SimulateWidgetPaymentRequestObject) (api.SimulateWidgetPaymentResponseObject, error) {
+	conflict := api.SimulateWidgetPayment409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{
+		Error: "the transaction is not waiting for a payment",
+	}}
+	t, err := h.widgetTransaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if transaction.Status(t.Status) != transaction.StatusPendingUserTransferStart || t.AmountIn == nil {
+		return conflict, nil
+	}
+
+	scenario := sandbox.ScenarioFor(*t.AmountIn)
+	update := transaction.Update{Scenario: ptr(string(scenario))}
+	to := transaction.StatusPendingAnchor
+	switch scenario {
+	case sandbox.ScenarioKYCRejected:
+		to, update.Message = transaction.StatusError, ptr("KYC rejected (sandbox scenario: amount ending in .13).")
+	case sandbox.ScenarioPaymentNotReceived:
+		to, update.Message = transaction.StatusExpired, ptr("Payment not received (sandbox scenario: amount ending in .99).")
+	case sandbox.ScenarioDelayed:
+		update.NextAttemptAt = ptr(time.Now().Add(sandbox.DelayedFor))
+	default:
+		update.NextAttemptAt = ptr(time.Now())
+	}
+
+	t, err = h.transactions.Transition(ctx, t.ID, to, update)
+	if errors.Is(err, transaction.ErrInvalidTransition) {
+		return conflict, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.SimulateWidgetPayment200JSONResponse(h.widgetView(t)), nil
 }
 
 // widgetTransaction loads the transaction of the widget session.

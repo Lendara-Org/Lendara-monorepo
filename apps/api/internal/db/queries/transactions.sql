@@ -26,11 +26,16 @@ ORDER BY t.started_at DESC, t.id DESC
 LIMIT @max_results;
 
 -- name: UpdateTransactionStatus :one
+-- message and next_attempt_at are replaced (NULL clears them); scenario and
+-- stellar_transaction_id are kept when NULL.
 UPDATE transactions
-SET status       = @status,
-    message      = sqlc.narg(message),
-    updated_at   = now(),
-    completed_at = CASE WHEN @status = 'completed' THEN now() ELSE completed_at END
+SET status                 = @status,
+    message                = sqlc.narg(message),
+    next_attempt_at        = sqlc.narg(next_attempt_at),
+    scenario               = coalesce(sqlc.narg(scenario), scenario),
+    stellar_transaction_id = coalesce(sqlc.narg(stellar_transaction_id), stellar_transaction_id),
+    updated_at             = now(),
+    completed_at           = CASE WHEN @status = 'completed' THEN now() ELSE completed_at END
 WHERE id = @id
 RETURNING *;
 
@@ -47,3 +52,13 @@ SELECT * FROM transactions WHERE stellar_transaction_id = $1 LIMIT 1;
 UPDATE transactions
 SET fiat_currency = $2, amount_in = $3, amount_out = $4, amount_fee = $5, updated_at = now()
 WHERE id = $1;
+
+-- name: ListDueTransactions :many
+-- Transactions waiting for the payment worker, oldest first.
+SELECT * FROM transactions
+WHERE status IN ('pending_anchor', 'pending_trust') AND next_attempt_at <= now()
+ORDER BY next_attempt_at
+LIMIT @max_results;
+
+-- name: SetNextAttempt :exec
+UPDATE transactions SET next_attempt_at = $2, updated_at = now() WHERE id = $1;

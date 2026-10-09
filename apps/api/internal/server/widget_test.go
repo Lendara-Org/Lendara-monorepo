@@ -7,7 +7,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/stellar/go-stellar-sdk/keypair"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
@@ -146,4 +148,64 @@ func TestWidgetQuoteBadRequest(t *testing.T) {
 			t.Errorf("%s: status = %d, want 400", query, rec.Code)
 		}
 	}
+}
+
+func TestWidgetSimulatePayment(t *testing.T) {
+	e := newSEP24Env(t)
+	tests := []struct {
+		amount, wantStatus, wantScenario string
+		wantDelay                        bool
+	}{
+		{amount: "10000.00", wantStatus: "pending_anchor", wantScenario: "approved"},
+		{amount: "10000.50", wantStatus: "pending_anchor", wantScenario: "delayed", wantDelay: true},
+		{amount: "10000.13", wantStatus: "error", wantScenario: "kyc_rejected"},
+		{amount: "10000.99", wantStatus: "expired", wantScenario: "payment_not_received"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.amount, func(t *testing.T) {
+			id, token := e.startWidget(t, keypair.MustRandom().Address())
+			session := e.session(t, id, token)
+
+			// Paying before confirming the amount is a conflict.
+			if rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, nil); rec.Code != http.StatusConflict {
+				t.Errorf("simulate before confirm status = %d, want 409", rec.Code)
+			}
+			e.widgetDo(t, http.MethodPost, "/widget-api/transaction/confirm", session,
+				map[string]string{"fiat_currency": "CRC", "amount": tt.amount})
+
+			rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, nil)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("simulate status = %d, body = %s", rec.Code, rec.Body)
+			}
+			var view api.WidgetTransaction
+			decode(t, rec, &view)
+			if string(view.Transaction.Status) != tt.wantStatus || view.PaymentInstructions != nil {
+				t.Errorf("status = %s, want %s without payment instructions", view.Transaction.Status, tt.wantStatus)
+			}
+
+			stored, err := e.store.Get(t.Context(), mustUUID(t, id))
+			if err != nil {
+				t.Fatalf("Get() error = %v", err)
+			}
+			if stored.Scenario == nil || *stored.Scenario != tt.wantScenario {
+				t.Errorf("scenario = %v, want %s", stored.Scenario, tt.wantScenario)
+			}
+			if delayed := stored.NextAttemptAt != nil && time.Until(*stored.NextAttemptAt) > 20*time.Second; delayed != tt.wantDelay {
+				t.Errorf("next_attempt_at = %v, want delayed=%v", stored.NextAttemptAt, tt.wantDelay)
+			}
+
+			if rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, nil); rec.Code != http.StatusConflict {
+				t.Errorf("second simulate status = %d, want 409", rec.Code)
+			}
+		})
+	}
+}
+
+func mustUUID(t *testing.T, s string) uuid.UUID {
+	t.Helper()
+	id, err := uuid.Parse(s)
+	if err != nil {
+		t.Fatalf("parse id: %v", err)
+	}
+	return id
 }
