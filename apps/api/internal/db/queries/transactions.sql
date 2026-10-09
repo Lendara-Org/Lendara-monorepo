@@ -42,3 +42,8 @@ SELECT * FROM transaction_events WHERE transaction_id = $1 ORDER BY id;
 
 -- name: GetTransactionByStellarID :one
 SELECT * FROM transactions WHERE stellar_transaction_id = $1 LIMIT 1;
+
+-- name: SetTransactionQuote :exec
+UPDATE transactions
+SET fiat_currency = $2, amount_in = $3, amount_out = $4, amount_fee = $5, updated_at = now()
+WHERE id = $1;
