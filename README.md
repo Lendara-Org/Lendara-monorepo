@@ -32,17 +32,49 @@ Go tools (`goose`, `golangci-lint`, `govulncheck`) are pinned in `apps/api/tools
 
 ## Deploy
 
-**API + Postgres on [Railway](https://railway.com).** The service builds `apps/api/Dockerfile` (config in `apps/api/railway.toml`); migrations run with `goose` before each deploy.
+Live sandbox: web at https://lendara-monorepo-fixh.vercel.app, API at https://lendaraweb-production.up.railway.app.
 
-1. New project → add a PostgreSQL database.
-2. Add a service from this repo with root directory `/apps/api`.
-3. Variables: the ones in `.env.example` under "API" and "Stellar testnet", plus:
-   - `DATABASE_URL` and `GOOSE_DBSTRING` = `${{Postgres.DATABASE_URL}}`
-   - `API_BASE_URL` = `https://<api-domain>`, `STELLAR_HOME_DOMAIN` = `<api-domain>`, `WEB_BASE_URL` = `https://<web-domain>`
-   - A new `SEP10_JWT_SECRET` (`openssl rand -hex 32`). Don't set `PORT`: Railway sets it.
-4. Generate a public domain for the service.
+### API + Postgres on [Railway](https://railway.com)
 
-**Web on [Vercel](https://vercel.com).** Import the repo with root directory `apps/web` and set `NEXT_PUBLIC_API_BASE_URL` = `https://<api-domain>` and `ENABLE_EXPERIMENTAL_COREPACK=1` (so Vercel uses the pnpm version in `package.json`).
+The service builds `apps/api/Dockerfile`. The image includes `goose`, which runs the migrations before each deploy.
+
+1. New project → **+ Create → Database → PostgreSQL**.
+2. Add a service from this repo. In its **Settings**:
+   - **Root Directory:** `/apps/api`
+   - **Dockerfile Path:** `/apps/api/Dockerfile`
+   - **Custom Start Command:** empty (the image's entrypoint runs the API)
+   - **Pre-deploy Command:** `/app/goose up`
+   - **Healthcheck Path:** `/health`
+3. **Variables** (raw editor):
+
+   ```
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   GOOSE_DBSTRING=${{Postgres.DATABASE_URL}}
+   PORT=8080
+   API_BASE_URL=https://<api-domain>
+   STELLAR_HOME_DOMAIN=<api-domain>
+   WEB_BASE_URL=https://<web-domain>
+   SEP10_JWT_SECRET=<openssl rand -hex 32>
+   STELLAR_ISSUER_PUBLIC_KEY=<G...>
+   STELLAR_DISTRIBUTION_SECRET=<S...>
+   STELLAR_SIGNING_SECRET=<S...>
+   ```
+
+   The issuer secret is only needed by `make setup-testnet`; don't upload it.
+4. **Settings → Networking → Generate Domain** on port `8080`.
+
+On the free plan services must be serverless: the API and Postgres sleep when idle, so the first request after a while takes a few seconds.
+
+### Web on [Vercel](https://vercel.com)
+
+Import the repo with root directory `apps/web` and set:
+
+```
+NEXT_PUBLIC_API_BASE_URL=https://<api-domain>
+ENABLE_EXPERIMENTAL_COREPACK=1
+```
+
+Corepack makes Vercel use the pnpm version in `package.json`. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
 
 ## Contributing
 
