@@ -30,6 +30,20 @@ make dev-api   # http://localhost:8080/health
 
 Go tools (`goose`, `golangci-lint`, `govulncheck`) are pinned in `apps/api/tools.mod` and run with `go tool`; nothing to install globally.
 
+## Deploy
+
+**API + Postgres on [Railway](https://railway.com).** The service builds `apps/api/Dockerfile` (config in `apps/api/railway.toml`); migrations run with `goose` before each deploy.
+
+1. New project → add a PostgreSQL database.
+2. Add a service from this repo with root directory `/apps/api`.
+3. Variables: the ones in `.env.example` under "API" and "Stellar testnet", plus:
+   - `DATABASE_URL` and `GOOSE_DBSTRING` = `${{Postgres.DATABASE_URL}}`
+   - `API_BASE_URL` = `https://<api-domain>`, `STELLAR_HOME_DOMAIN` = `<api-domain>`, `WEB_BASE_URL` = `https://<web-domain>`
+   - A new `SEP10_JWT_SECRET` (`openssl rand -hex 32`). Don't set `PORT`: Railway sets it.
+4. Generate a public domain for the service.
+
+**Web on [Vercel](https://vercel.com).** Import the repo with root directory `apps/web` and set `NEXT_PUBLIC_API_BASE_URL` = `https://<api-domain>` and `ENABLE_EXPERIMENTAL_COREPACK=1` (so Vercel uses the pnpm version in `package.json`).
+
 ## Contributing
 
 - Commit messages and PR titles follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): subject`.
