@@ -453,9 +453,17 @@ paths:
       tags: [Widget]
       operationId: simulateWidgetPayment
       summary: Simulate the user's fiat payment
-      description: The outcome depends on the amount's decimals (sandbox scenarios).
+      description: |
+        The widget picks the scenario from the test card the user entered.
+        Card details never reach the API: only the scenario does.
       security:
         - widgetSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WidgetSimulatePaymentRequest"
       responses:
         "200":
           description: Updated transaction. Poll `GET /widget-api/transaction` for progress.
@@ -463,6 +471,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WidgetTransaction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
@@ -805,7 +815,7 @@ components:
     FiatAmount:
       type: string
       pattern: '^[0-9]+(\.[0-9]{1,2})?$'
-      description: Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+      description: Decimal string with up to 2 decimals.
       example: "10000.00"
 
     Project:
@@ -913,6 +923,23 @@ components:
           $ref: "#/components/schemas/FiatCurrency"
         amount:
           $ref: "#/components/schemas/FiatAmount"
+
+    SandboxScenario:
+      type: string
+      enum: [approved, kyc_rejected, payment_not_received, delayed]
+      description: |
+        Simulated outcome of a deposit:
+        - `approved`: paid on Stellar right away.
+        - `kyc_rejected`: ends in `error`.
+        - `payment_not_received`: ends in `expired`.
+        - `delayed`: approved after 30 s in `pending_anchor`.
+
+    WidgetSimulatePaymentRequest:
+      type: object
+      required: [scenario]
+      properties:
+        scenario:
+          $ref: "#/components/schemas/SandboxScenario"
 
     Quote:
       type: object

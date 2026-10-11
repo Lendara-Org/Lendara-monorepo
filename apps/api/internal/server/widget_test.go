@@ -152,28 +152,30 @@ func TestWidgetQuoteBadRequest(t *testing.T) {
 
 func TestWidgetSimulatePayment(t *testing.T) {
 	e := newSEP24Env(t)
+	const path = "/widget-api/transaction/simulate-payment"
 	tests := []struct {
-		amount, wantStatus, wantScenario string
-		wantDelay                        bool
+		scenario, wantStatus string
+		wantDelay            bool
 	}{
-		{amount: "10000.00", wantStatus: "pending_anchor", wantScenario: "approved"},
-		{amount: "10000.50", wantStatus: "pending_anchor", wantScenario: "delayed", wantDelay: true},
-		{amount: "10000.13", wantStatus: "error", wantScenario: "kyc_rejected"},
-		{amount: "10000.99", wantStatus: "expired", wantScenario: "payment_not_received"},
+		{scenario: "approved", wantStatus: "pending_anchor"},
+		{scenario: "delayed", wantStatus: "pending_anchor", wantDelay: true},
+		{scenario: "kyc_rejected", wantStatus: "error"},
+		{scenario: "payment_not_received", wantStatus: "expired"},
 	}
 	for _, tt := range tests {
-		t.Run(tt.amount, func(t *testing.T) {
+		t.Run(tt.scenario, func(t *testing.T) {
 			id, token := e.startWidget(t, keypair.MustRandom().Address())
 			session := e.session(t, id, token)
+			body := map[string]string{"scenario": tt.scenario}
 
 			// Paying before confirming the amount is a conflict.
-			if rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, nil); rec.Code != http.StatusConflict {
+			if rec := e.widgetDo(t, http.MethodPost, path, session, body); rec.Code != http.StatusConflict {
 				t.Errorf("simulate before confirm status = %d, want 409", rec.Code)
 			}
 			e.widgetDo(t, http.MethodPost, "/widget-api/transaction/confirm", session,
-				map[string]string{"fiat_currency": "CRC", "amount": tt.amount})
+				map[string]string{"fiat_currency": "CRC", "amount": "10000.00"})
 
-			rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, nil)
+			rec := e.widgetDo(t, http.MethodPost, path, session, body)
 			if rec.Code != http.StatusOK {
 				t.Fatalf("simulate status = %d, body = %s", rec.Code, rec.Body)
 			}
@@ -187,17 +189,35 @@ func TestWidgetSimulatePayment(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Get() error = %v", err)
 			}
-			if stored.Scenario == nil || *stored.Scenario != tt.wantScenario {
-				t.Errorf("scenario = %v, want %s", stored.Scenario, tt.wantScenario)
+			if stored.Scenario == nil || *stored.Scenario != tt.scenario {
+				t.Errorf("scenario = %v, want %s", stored.Scenario, tt.scenario)
 			}
 			if delayed := stored.NextAttemptAt != nil && time.Until(*stored.NextAttemptAt) > 20*time.Second; delayed != tt.wantDelay {
 				t.Errorf("next_attempt_at = %v, want delayed=%v", stored.NextAttemptAt, tt.wantDelay)
 			}
 
-			if rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, nil); rec.Code != http.StatusConflict {
+			if rec := e.widgetDo(t, http.MethodPost, path, session, body); rec.Code != http.StatusConflict {
 				t.Errorf("second simulate status = %d, want 409", rec.Code)
 			}
 		})
+	}
+}
+
+func TestWidgetSimulatePaymentRequiresScenario(t *testing.T) {
+	e := newSEP24Env(t)
+	id, token := e.startWidget(t, keypair.MustRandom().Address())
+	session := e.session(t, id, token)
+	e.widgetDo(t, http.MethodPost, "/widget-api/transaction/confirm", session,
+		map[string]string{"fiat_currency": "CRC", "amount": "10000.00"})
+
+	for name, body := range map[string]any{
+		"missing": map[string]string{},
+		"unknown": map[string]string{"scenario": "refunded"},
+	} {
+		rec := e.widgetDo(t, http.MethodPost, "/widget-api/transaction/simulate-payment", session, body)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s scenario status = %d, want 400", name, rec.Code)
+		}
 	}
 }
 

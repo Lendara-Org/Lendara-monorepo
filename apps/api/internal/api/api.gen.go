@@ -56,6 +56,30 @@ func (e FiatCurrency) Valid() bool {
 	}
 }
 
+// Defines values for SandboxScenario.
+const (
+	Approved           SandboxScenario = "approved"
+	Delayed            SandboxScenario = "delayed"
+	KycRejected        SandboxScenario = "kyc_rejected"
+	PaymentNotReceived SandboxScenario = "payment_not_received"
+)
+
+// Valid indicates whether the value is a known member of the SandboxScenario enum.
+func (e SandboxScenario) Valid() bool {
+	switch e {
+	case Approved:
+		return true
+	case Delayed:
+		return true
+	case KycRejected:
+		return true
+	case PaymentNotReceived:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Sep24DepositRequestMemoType.
 const (
 	Sep24DepositRequestMemoTypeHash Sep24DepositRequestMemoType = "hash"
@@ -205,7 +229,7 @@ type Error struct {
 	Error string `json:"error"`
 }
 
-// FiatAmount Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+// FiatAmount Decimal string with up to 2 decimals.
 //
 // Example: 10000.00
 type FiatAmount = string
@@ -258,6 +282,13 @@ type Quote struct {
 	// Rate Fiat units per 1 USDC.
 	Rate string `json:"rate"`
 }
+
+// SandboxScenario Simulated outcome of a deposit:
+// - `approved`: paid on Stellar right away.
+// - `kyc_rejected`: ends in `error`.
+// - `payment_not_received`: ends in `expired`.
+// - `delayed`: approved after 30 s in `pending_anchor`.
+type SandboxScenario string
 
 // Sep10ChallengeResponse defines model for Sep10ChallengeResponse.
 type Sep10ChallengeResponse struct {
@@ -429,7 +460,7 @@ type SessionCreateRequest struct {
 	// Account Stellar account (`G...`) that receives the USDC.
 	Account string `json:"account"`
 
-	// Amount Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+	// Amount Decimal string with up to 2 decimals.
 	//
 	// Example: 10000.00
 	Amount       *FiatAmount                   `json:"amount,omitempty"`
@@ -451,7 +482,7 @@ type TransactionList struct {
 
 // WidgetConfirmRequest defines model for WidgetConfirmRequest.
 type WidgetConfirmRequest struct {
-	// Amount Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+	// Amount Decimal string with up to 2 decimals.
 	//
 	// Example: 10000.00
 	Amount       FiatAmount   `json:"amount"`
@@ -469,6 +500,16 @@ type WidgetSessionCreateRequest struct {
 	// Token One-time token from the interactive URL.
 	Token         string `json:"token"`
 	TransactionId string `json:"transaction_id"`
+}
+
+// WidgetSimulatePaymentRequest defines model for WidgetSimulatePaymentRequest.
+type WidgetSimulatePaymentRequest struct {
+	// Scenario Simulated outcome of a deposit:
+	// - `approved`: paid on Stellar right away.
+	// - `kyc_rejected`: ends in `error`.
+	// - `payment_not_received`: ends in `expired`.
+	// - `delayed`: approved after 30 s in `pending_anchor`.
+	Scenario SandboxScenario `json:"scenario"`
 }
 
 // WidgetTransaction defines model for WidgetTransaction.
@@ -581,6 +622,9 @@ type CreateWidgetSessionJSONRequestBody = WidgetSessionCreateRequest
 
 // ConfirmWidgetTransactionJSONRequestBody defines body for ConfirmWidgetTransaction for application/json ContentType.
 type ConfirmWidgetTransactionJSONRequestBody = WidgetConfirmRequest
+
+// SimulateWidgetPaymentJSONRequestBody defines body for SimulateWidgetPayment for application/json ContentType.
+type SimulateWidgetPaymentJSONRequestBody = WidgetSimulatePaymentRequest
 
 // Getter for additional properties for Sep24DepositRequest. Returns the specified
 // element and whether it was found
@@ -2252,6 +2296,7 @@ func (response ConfirmWidgetTransaction409JSONResponse) VisitConfirmWidgetTransa
 }
 
 type SimulateWidgetPaymentRequestObject struct {
+	Body *SimulateWidgetPaymentJSONRequestBody
 }
 
 type SimulateWidgetPaymentResponseObject interface {
@@ -2268,6 +2313,20 @@ func (response SimulateWidgetPayment200JSONResponse) VisitSimulateWidgetPaymentR
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SimulateWidgetPayment400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SimulateWidgetPayment400JSONResponse) VisitSimulateWidgetPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2877,6 +2936,13 @@ func (sh *strictHandler) ConfirmWidgetTransaction(w http.ResponseWriter, r *http
 // SimulateWidgetPayment operation middleware
 func (sh *strictHandler) SimulateWidgetPayment(w http.ResponseWriter, r *http.Request) {
 	var request SimulateWidgetPaymentRequestObject
+
+	var body SimulateWidgetPaymentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.SimulateWidgetPayment(ctx, request.(SimulateWidgetPaymentRequestObject))

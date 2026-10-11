@@ -97,10 +97,15 @@ func (h *Handlers) ConfirmWidgetTransaction(ctx context.Context, req api.Confirm
 	return api.ConfirmWidgetTransaction200JSONResponse(h.widgetView(t)), nil
 }
 
-// SimulateWidgetPayment simulates the user's fiat payment. The decimals of
-// the amount pick the sandbox scenario; approved deposits are paid on Stellar
-// by the payment worker.
-func (h *Handlers) SimulateWidgetPayment(ctx context.Context, _ api.SimulateWidgetPaymentRequestObject) (api.SimulateWidgetPaymentResponseObject, error) {
+// SimulateWidgetPayment simulates the user's fiat payment with the scenario
+// of the test card they entered; approved deposits are paid on Stellar by the
+// payment worker.
+func (h *Handlers) SimulateWidgetPayment(ctx context.Context, req api.SimulateWidgetPaymentRequestObject) (api.SimulateWidgetPaymentResponseObject, error) {
+	if req.Body == nil || !req.Body.Scenario.Valid() {
+		return api.SimulateWidgetPayment400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "scenario must be one of approved, kyc_rejected, payment_not_received, delayed",
+		}}, nil
+	}
 	conflict := api.SimulateWidgetPayment409JSONResponse{ConflictJSONResponse: api.ConflictJSONResponse{
 		Error: "the transaction is not waiting for a payment",
 	}}
@@ -112,14 +117,14 @@ func (h *Handlers) SimulateWidgetPayment(ctx context.Context, _ api.SimulateWidg
 		return conflict, nil
 	}
 
-	scenario := sandbox.ScenarioFor(*t.AmountIn)
+	scenario := sandbox.Scenario(req.Body.Scenario)
 	update := transaction.Update{Scenario: ptr(string(scenario))}
 	to := transaction.StatusPendingAnchor
 	switch scenario {
 	case sandbox.ScenarioKYCRejected:
-		to, update.Message = transaction.StatusError, ptr("KYC rejected (sandbox scenario: amount ending in .13).")
+		to, update.Message = transaction.StatusError, ptr("KYC rejected (sandbox scenario).")
 	case sandbox.ScenarioPaymentNotReceived:
-		to, update.Message = transaction.StatusExpired, ptr("Payment not received (sandbox scenario: amount ending in .99).")
+		to, update.Message = transaction.StatusExpired, ptr("Payment not received (sandbox scenario).")
 	case sandbox.ScenarioDelayed:
 		update.NextAttemptAt = ptr(time.Now().Add(sandbox.DelayedFor))
 	default:
@@ -160,7 +165,7 @@ func (h *Handlers) widgetView(t db.Transaction) api.WidgetTransaction {
 			Reference:    "LND-" + strings.ToUpper(t.ID.String()[:8]),
 			Amount:       q.AmountIn,
 			FiatCurrency: api.FiatCurrency(q.FiatCurrency),
-			Description:  "Simulated bank transfer: no real payment is made. Press \"Simulate payment\" to continue.",
+			Description:  "Simulated payment: no real money moves. Pay with a test card to continue.",
 		}
 	}
 	return view
