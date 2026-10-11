@@ -451,7 +451,7 @@ type Session struct {
 	// Id Transaction ID.
 	Id string `json:"id"`
 
-	// Url Widget URL with a one-time token. Open it with `@lendara/widget`.
+	// Url Widget URL with a one-time token. Open it with `@lendara/widget`. `fiat_currency` and `amount` from the request prefill the widget.
 	Url string `json:"url"`
 }
 

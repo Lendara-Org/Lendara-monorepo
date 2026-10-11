@@ -19,6 +19,7 @@ import (
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/config"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/payment"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/project"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep1"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/server"
@@ -72,6 +73,7 @@ func run() error {
 	}
 
 	transactions := transaction.NewStore(pool)
+	projects := project.NewStore(pool)
 	go payment.New(transactions, horizon, cfg.Stellar.Distribution, cfg.Stellar.IssuerPublic, logger).Run(ctx)
 
 	widget := widgetauth.New(cfg.APIBaseURL, cfg.JWTSecret)
@@ -79,6 +81,7 @@ func run() error {
 		StellarTOML:  stellarTOML,
 		SEP10:        auth,
 		Transactions: transactions,
+		Projects:     projects,
 		Widget:       widget,
 		WebBaseURL:   cfg.WebBaseURL,
 		Issuer:       cfg.Stellar.IssuerPublic,
@@ -86,7 +89,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           server.New(logger, pool, h, server.Auth{SEP10: auth, Widget: widget}),
+		Handler:           server.New(logger, pool, h, server.Auth{SEP10: auth, Widget: widget, APIKey: projects}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

@@ -9,7 +9,7 @@ import { clearSession, startSession } from "@/lib/widget-session";
 import { AmountStep } from "./amount-step";
 import { CardStep } from "./card-step";
 import { DetailsStep } from "./details-step";
-import { emptyDraft, type Draft } from "./draft";
+import { initialDraft, type Draft } from "./draft";
 import { ReviewStep } from "./review-step";
 import { StatusStep } from "./status-step";
 import { Button, LockIcon } from "./ui";
@@ -22,14 +22,20 @@ type State =
   | { phase: "error"; message: string; retry: boolean }
   | { phase: "ready"; accessToken: string; tx: WidgetTransaction };
 
-type Props = { transactionId: string; token: string | null; lang: string | undefined };
+type Props = {
+  transactionId: string;
+  token: string | null;
+  lang: string | undefined;
+  fiatCurrency?: string | undefined;
+  fiatAmount?: string | undefined;
+};
 
-export function DepositWidget({ transactionId, token, lang }: Props) {
+export function DepositWidget({ transactionId, token, lang, fiatCurrency, fiatAmount }: Props) {
   const { lang: code, t } = getMessages(lang);
   const [state, setState] = useState<State>({ phase: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [draft, setDraft] = useState<Draft>(() => initialDraft(fiatCurrency, fiatAmount));
   const embed = useEmbed();
 
   const fail = useCallback(

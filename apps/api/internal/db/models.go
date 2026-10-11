@@ -10,6 +10,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type ApiKey struct {
+	ID        uuid.UUID
+	ProjectID uuid.UUID
+	KeyHash   []byte
+	KeyPrefix string
+	CreatedAt time.Time
+}
+
 type InteractiveToken struct {
 	TokenHash     []byte
 	TransactionID uuid.UUID

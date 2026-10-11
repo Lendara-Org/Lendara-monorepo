@@ -4,12 +4,10 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
-	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
 )
 
 // Pinger reports whether a dependency (the database) is reachable.
@@ -40,10 +38,6 @@ func badRequest(w http.ResponseWriter, _ *http.Request, err error) {
 
 func responseError(logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
-		if errors.Is(err, handlers.ErrNotImplemented) {
-			writeError(w, http.StatusNotImplemented, "not implemented")
-			return
-		}
 		logger.ErrorContext(r.Context(), "handler failed", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal server error")
 	}

@@ -484,7 +484,7 @@ export interface components {
         Session: {
             /** @description Transaction ID. */
             id: string;
-            /** @description Widget URL with a one-time token. Open it with `@lendara/widget`. */
+            /** @description Widget URL with a one-time token. Open it with `@lendara/widget`. `fiat_currency` and `amount` from the request prefill the widget. */
             url: string;
             /**
              * Format: date-time

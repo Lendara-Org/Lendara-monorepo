@@ -124,13 +124,13 @@ func TestCORSPreflight(t *testing.T) {
 	}
 }
 
-func TestUnimplementedEndpoint(t *testing.T) {
+func TestErrorResponsesKeepCORS(t *testing.T) {
 	h := New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{}), Auth{SEP10: fakeAuth{}})
 
 	rec := serve(t, h, http.MethodGet, "/v1/project", nil)
 
-	if rec.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusNotImplemented)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Errorf("error responses must keep CORS; Access-Control-Allow-Origin = %q", got)

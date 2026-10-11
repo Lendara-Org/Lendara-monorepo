@@ -62,3 +62,12 @@ LIMIT @max_results;
 
 -- name: SetNextAttempt :exec
 UPDATE transactions SET next_attempt_at = $2, updated_at = now() WHERE id = $1;
+
+-- name: ListTransactionsByProject :many
+-- /v1/transactions: newest first, cursor is the exclusive last transaction id.
+SELECT t.* FROM transactions t
+WHERE t.project_id = @project_id
+  AND (sqlc.narg(cursor)::uuid IS NULL OR (t.started_at, t.id) < (
+      SELECT c.started_at, c.id FROM transactions c WHERE c.id = sqlc.narg(cursor)))
+ORDER BY t.started_at DESC, t.id DESC
+LIMIT @max_results;
