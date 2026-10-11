@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 export function Shell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
@@ -12,7 +13,12 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
             </span>
             <span className="text-sm text-gray">Dashboard</span>
           </div>
-          {actions}
+          <div className="flex items-center gap-4">
+            <Link href="/docs" className="text-sm text-gray underline hover:text-ink">
+              Docs
+            </Link>
+            {actions}
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10">{children}</main>
