@@ -15,9 +15,10 @@ type Props = {
 };
 
 // SEP-24 interactive flow: /widget/<id>?token=<one-time token>&lang=<code>
+// Sessions from /v1/sessions may add fiat_currency and fiat_amount to prefill.
 export default async function WidgetPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { token, lang } = await searchParams;
+  const { token, lang, fiat_currency, fiat_amount } = await searchParams;
   if (!UUID.test(id)) notFound();
 
   return (
@@ -25,6 +26,8 @@ export default async function WidgetPage({ params, searchParams }: Props) {
       transactionId={id}
       token={typeof token === "string" ? token : null}
       lang={typeof lang === "string" ? lang : undefined}
+      fiatCurrency={typeof fiat_currency === "string" ? fiat_currency : undefined}
+      fiatAmount={typeof fiat_amount === "string" ? fiat_amount : undefined}
     />
   );
 }
