@@ -17,4 +17,4 @@ dist/
 .vscode/
 
 # Local AI context
-CLAUDE.md
+CLAUDE.local.md
