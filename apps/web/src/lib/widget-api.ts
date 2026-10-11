@@ -11,7 +11,7 @@ export type WidgetTransaction = Schemas["WidgetTransaction"];
 
 export const FIAT_CURRENCIES = ["CRC", "ARS", "CLP"] as const satisfies readonly FiatCurrency[];
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
 export class ApiError extends Error {
   constructor(

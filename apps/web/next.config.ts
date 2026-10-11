@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The SDK ships TypeScript sources inside the monorepo.
+  transpilePackages: ["@lendara/ramp"],
   async headers() {
     return [
       {
