@@ -1,6 +1,6 @@
 import { FIAT_CURRENCIES, type FiatCurrency, type Quote } from "@/lib/widget-api";
 
-export type Country = "CR" | "AR" | "BR";
+export type Country = "CR" | "AR" | "CL";
 
 /** What the user filled in so far. It stays in memory: nothing here is sent
  * to the API except the currency, the amount and the card's scenario. */
@@ -17,7 +17,7 @@ export type Draft = {
   holder: string;
 };
 
-export const COUNTRY_BY_CURRENCY: Record<FiatCurrency, Country> = { CRC: "CR", ARS: "AR", BRL: "BR" };
+export const COUNTRY_BY_CURRENCY: Record<FiatCurrency, Country> = { CRC: "CR", ARS: "AR", CLP: "CL" };
 
 export const emptyDraft: Draft = {
   currency: "CRC",

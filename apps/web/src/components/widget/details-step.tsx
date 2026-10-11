@@ -5,7 +5,7 @@ import type { Country, StepProps } from "./draft";
 import { Button, errorProps, Field, inputClass, StepActions } from "./ui";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const COUNTRIES: readonly Country[] = ["CR", "AR", "BR"];
+const COUNTRIES: readonly Country[] = ["CR", "AR", "CL"];
 
 export function DetailsStep({ t, draft, onChange, onNext, onBack }: StepProps) {
   const [submitted, setSubmitted] = useState(false);
