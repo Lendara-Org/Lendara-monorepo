@@ -264,6 +264,63 @@ func (q *Queries) ListTransactionEvents(ctx context.Context, transactionID uuid.
 	return items, nil
 }
 
+const listTransactionsByProject = `-- name: ListTransactionsByProject :many
+SELECT t.id, t.project_id, t.kind, t.status, t.asset_code, t.sep10_subject, t.stellar_account, t.memo, t.memo_type, t.fiat_currency, t.amount_in, t.amount_out, t.amount_fee, t.scenario, t.stellar_transaction_id, t.message, t.started_at, t.updated_at, t.completed_at, t.next_attempt_at FROM transactions t
+WHERE t.project_id = $1
+  AND ($2::uuid IS NULL OR (t.started_at, t.id) < (
+      SELECT c.started_at, c.id FROM transactions c WHERE c.id = $2))
+ORDER BY t.started_at DESC, t.id DESC
+LIMIT $3
+`
+
+type ListTransactionsByProjectParams struct {
+	ProjectID  *uuid.UUID
+	Cursor     *uuid.UUID
+	MaxResults int32
+}
+
+// /v1/transactions: newest first, cursor is the exclusive last transaction id.
+func (q *Queries) ListTransactionsByProject(ctx context.Context, arg ListTransactionsByProjectParams) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, listTransactionsByProject, arg.ProjectID, arg.Cursor, arg.MaxResults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.Status,
+			&i.AssetCode,
+			&i.Sep10Subject,
+			&i.StellarAccount,
+			&i.Memo,
+			&i.MemoType,
+			&i.FiatCurrency,
+			&i.AmountIn,
+			&i.AmountOut,
+			&i.AmountFee,
+			&i.Scenario,
+			&i.StellarTransactionID,
+			&i.Message,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+			&i.NextAttemptAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransactionsBySubject = `-- name: ListTransactionsBySubject :many
 SELECT t.id, t.project_id, t.kind, t.status, t.asset_code, t.sep10_subject, t.stellar_account, t.memo, t.memo_type, t.fiat_currency, t.amount_in, t.amount_out, t.amount_fee, t.scenario, t.stellar_transaction_id, t.message, t.started_at, t.updated_at, t.completed_at, t.next_attempt_at FROM transactions t
 WHERE t.sep10_subject = $1

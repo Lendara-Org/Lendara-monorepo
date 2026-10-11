@@ -99,6 +99,11 @@ func (s *Store) ListBySubject(ctx context.Context, p db.ListTransactionsBySubjec
 	return db.New(s.pool).ListTransactionsBySubject(ctx, p)
 }
 
+// ListByProject returns the transactions of a project, newest first.
+func (s *Store) ListByProject(ctx context.Context, p db.ListTransactionsByProjectParams) ([]db.Transaction, error) {
+	return db.New(s.pool).ListTransactionsByProject(ctx, p)
+}
+
 // Update holds the fields that may change together with the status.
 type Update struct {
 	// Message is shown to the user (SEP-24 `message`); nil clears it.

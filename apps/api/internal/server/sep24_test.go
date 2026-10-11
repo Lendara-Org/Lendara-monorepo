@@ -18,6 +18,7 @@ import (
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/handlers"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/project"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/transaction"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/widgetauth"
 )
@@ -36,10 +37,11 @@ func (subjectAuth) Verify(token string) (string, error) {
 }
 
 type sep24Env struct {
-	h      http.Handler
-	store  *transaction.Store
-	widget *widgetauth.Issuer
-	issuer string
+	h        http.Handler
+	store    *transaction.Store
+	projects *project.Store
+	widget   *widgetauth.Issuer
+	issuer   string
 }
 
 // newSEP24Env serves the API with a real store on TEST_DATABASE_URL.
@@ -56,16 +58,18 @@ func newSEP24Env(t *testing.T) sep24Env {
 	t.Cleanup(pool.Close)
 
 	env := sep24Env{
-		store:  transaction.NewStore(pool),
-		widget: widgetauth.New("https://api.lendara.test", []byte(strings.Repeat("s", 32))),
-		issuer: keypair.MustRandom().Address(),
+		store:    transaction.NewStore(pool),
+		projects: project.NewStore(pool),
+		widget:   widgetauth.New("https://api.lendara.test", []byte(strings.Repeat("s", 32))),
+		issuer:   keypair.MustRandom().Address(),
 	}
 	env.h = New(discardLogger(), fakePinger{}, handlers.New(handlers.Config{
 		Transactions: env.store,
+		Projects:     env.projects,
 		Widget:       env.widget,
 		WebBaseURL:   testWebBaseURL,
 		Issuer:       env.issuer,
-	}), Auth{SEP10: subjectAuth{}, Widget: env.widget})
+	}), Auth{SEP10: subjectAuth{}, Widget: env.widget, APIKey: env.projects})
 	return env
 }
 

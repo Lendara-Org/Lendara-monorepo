@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/project"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/sep10"
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/widgetauth"
 )
@@ -22,10 +24,16 @@ type WidgetAuthenticator interface {
 	Verify(token string) (uuid.UUID, error)
 }
 
+// APIKeyAuthenticator looks up a project API key and returns its project.
+type APIKeyAuthenticator interface {
+	Authenticate(ctx context.Context, key string) (uuid.UUID, error)
+}
+
 // Auth holds the verifiers of each security scheme in openapi.yaml.
 type Auth struct {
 	SEP10  Authenticator
 	Widget WidgetAuthenticator
+	APIKey APIKeyAuthenticator
 }
 
 // sep10Operations use the sep10Jwt security scheme in openapi.yaml.
@@ -43,12 +51,22 @@ var widgetOperations = map[string]bool{
 	"SimulateWidgetPayment":    true,
 }
 
+// apiKeyOperations use the apiKey security scheme in openapi.yaml.
+var apiKeyOperations = map[string]bool{
+	"GetProject":       true,
+	"CreateSession":    true,
+	"ListTransactions": true,
+	"GetTransaction":   true,
+}
+
 // requireAuth checks the bearer token of protected operations and stores the
 // authenticated identity in the request context:
 //   - sep10Operations: SEP-24 "Authentication required" (403) on failure;
 //     the subject is read with sep10.SubjectFrom.
 //   - widgetOperations: 401 on failure; the transaction is read with
 //     widgetauth.TransactionFrom.
+//   - apiKeyOperations: 401 on failure; the project is read with
+//     project.IDFrom.
 func requireAuth(auth Auth) api.StrictMiddlewareFunc {
 	return func(next api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
 		switch {
@@ -71,6 +89,23 @@ func requireAuth(auth Auth) api.StrictMiddlewareFunc {
 					return nil, nil
 				}
 				return next(widgetauth.WithTransaction(ctx, id), w, r, req)
+			}
+		case apiKeyOperations[operationID]:
+			return func(ctx context.Context, w http.ResponseWriter, r *http.Request, req any) (any, error) {
+				key, ok := bearer(r)
+				if !ok {
+					writeError(w, http.StatusUnauthorized, "missing API key")
+					return nil, nil
+				}
+				id, err := auth.APIKey.Authenticate(ctx, key)
+				if errors.Is(err, project.ErrInvalidKey) {
+					writeError(w, http.StatusUnauthorized, "invalid API key")
+					return nil, nil
+				}
+				if err != nil {
+					return nil, err
+				}
+				return next(project.WithID(ctx, id), w, r, req)
 			}
 		default:
 			return next

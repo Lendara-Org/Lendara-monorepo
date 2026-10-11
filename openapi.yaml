@@ -876,7 +876,9 @@ components:
           description: Transaction ID.
         url:
           type: string
-          description: Widget URL with a one-time token. Open it with `@lendara/widget`.
+          description: >-
+            Widget URL with a one-time token. Open it with `@lendara/widget`.
+            `fiat_currency` and `amount` from the request prefill the widget.
         expires_at:
           type: string
           format: date-time
