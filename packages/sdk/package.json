@@ -1,6 +1,6 @@
 {
   "name": "@lendara/ramp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Server-side client for the Lendara sandbox on-ramp API (fiat to USDC on Stellar testnet).",
   "license": "MIT",
   "type": "module",
