@@ -179,6 +179,9 @@ func (h *Handlers) GetSep24Transactions(ctx context.Context, req api.GetSep24Tra
 		return api.GetSep24Transactions400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: msg}}, nil
 	}
 	p := req.Params
+	if p.AssetCode != assetCode {
+		return badRequest(fmt.Sprintf("asset_code %q is not supported", p.AssetCode))
+	}
 	subject, _ := sep10.SubjectFrom(ctx)
 
 	params := db.ListTransactionsBySubjectParams{

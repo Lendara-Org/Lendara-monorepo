@@ -278,4 +278,7 @@ func TestSEP24Transactions(t *testing.T) {
 	if rec := e.do(t, http.MethodGet, "/sep24/transactions?asset_code=USDC&limit=0", subject, "", nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("limit=0 status = %d, want 400", rec.Code)
 	}
+	if rec := e.do(t, http.MethodGet, "/sep24/transactions?asset_code=BADCODE", subject, "", nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("unsupported asset_code status = %d, want 400", rec.Code)
+	}
 }
