@@ -71,7 +71,7 @@ codegen-api:
 	cd $(API_DIR) && $(GO_TOOL) sqlc generate
 
 codegen-sdk:
-	pnpm --filter @lendara/sdk codegen
+	pnpm --filter @lendara/ramp codegen
 
 build: build-js build-api
 

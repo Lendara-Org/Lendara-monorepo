@@ -12,3 +12,6 @@ export type Session = Schemas["Session"];
 export type SessionCreateRequest = Schemas["SessionCreateRequest"];
 export type TransactionList = Schemas["TransactionList"];
 export type Quote = Schemas["Quote"];
+export type Project = Schemas["Project"];
+
+export { LendaraError, LendaraRamp, SANDBOX_BASE_URL, type LendaraRampOptions } from "./client.ts";

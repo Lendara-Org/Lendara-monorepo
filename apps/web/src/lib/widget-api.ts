@@ -1,4 +1,4 @@
-import type { components } from "@lendara/sdk";
+import type { components } from "@lendara/ramp";
 
 type Schemas = components["schemas"];
 export type FiatCurrency = Schemas["FiatCurrency"];
