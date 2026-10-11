@@ -12,7 +12,7 @@ func TestNewQuote(t *testing.T) {
 	}{
 		{currency: "CRC", amount: "10000", wantIn: "10000.00", wantOut: "19.1078431"}, // 19.6078431... - 0.50, rounded down
 		{currency: "ARS", amount: "25000.50", wantIn: "25000.50", wantOut: "24.5005000"},
-		{currency: "BRL", amount: "55", wantIn: "55.00", wantOut: "9.5000000"},
+		{currency: "CLP", amount: "9500", wantIn: "9500.00", wantOut: "9.5000000"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.currency+" "+tt.amount, func(t *testing.T) {
@@ -33,11 +33,11 @@ func TestNewQuote(t *testing.T) {
 func TestNewQuoteRejects(t *testing.T) {
 	tests := map[string][2]string{
 		"unknown currency": {"USD", "100"},
-		"three decimals":   {"BRL", "10.123"},
-		"negative":         {"BRL", "-10"},
-		"not a number":     {"BRL", "ten"},
-		"below minimum":    {"BRL", "8.24"},     // 1.4981... - 0.50 < 1
-		"above maximum":    {"BRL", "55005.51"}, // > 10000 USDC after fee
+		"three decimals":   {"CLP", "10.123"},
+		"negative":         {"CLP", "-10"},
+		"not a number":     {"CLP", "ten"},
+		"below minimum":    {"CLP", "1424.99"},    // 1.4999... - 0.50 < 1
+		"above maximum":    {"CLP", "9500475.01"}, // > 10000 USDC after fee
 	}
 	for name, in := range tests {
 		t.Run(name, func(t *testing.T) {

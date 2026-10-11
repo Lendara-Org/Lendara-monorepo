@@ -81,7 +81,7 @@ func (h *Handlers) CreateSession(ctx context.Context, req api.CreateSessionReque
 	if body.FiatCurrency != nil {
 		currency := string(*body.FiatCurrency)
 		if _, ok := sandbox.Rates[currency]; !ok {
-			return badRequest("fiat_currency must be CRC, ARS or BRL")
+			return badRequest("fiat_currency must be CRC, ARS or CLP")
 		}
 		query.Set("fiat_currency", currency)
 	}

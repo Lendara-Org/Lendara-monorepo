@@ -14,7 +14,7 @@ const lendara = new LendaraRamp({ apiKey: process.env.LENDARA_API_KEY! });
 
 const session = await lendara.createSession({
   account: "G...", // Stellar account that receives the USDC
-  fiat_currency: "CRC", // optional: CRC, ARS or BRL
+  fiat_currency: "CRC", // optional: CRC, ARS or CLP
   amount: "20000", // optional: prefills the widget
 });
 // Send session.url to the browser and open it with @lendara/widget.

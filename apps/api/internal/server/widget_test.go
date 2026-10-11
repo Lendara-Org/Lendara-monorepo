@@ -97,7 +97,7 @@ func TestWidgetFlow(t *testing.T) {
 	}
 
 	rec = e.widgetDo(t, http.MethodPost, "/widget-api/transaction/confirm", session,
-		map[string]string{"fiat_currency": "BRL", "amount": "100"})
+		map[string]string{"fiat_currency": "CLP", "amount": "9500"})
 	if rec.Code != http.StatusConflict {
 		t.Errorf("second confirm status = %d, want 409", rec.Code)
 	}
@@ -142,7 +142,7 @@ func TestWidgetQuoteBadRequest(t *testing.T) {
 	id, token := e.startWidget(t, keypair.MustRandom().Address())
 	session := e.session(t, id, token)
 
-	for _, query := range []string{"fiat_currency=USD&amount=10", "fiat_currency=BRL&amount=1.234", "fiat_currency=BRL&amount=1"} {
+	for _, query := range []string{"fiat_currency=USD&amount=10", "fiat_currency=BRL&amount=100", "fiat_currency=CLP&amount=1.234", "fiat_currency=CLP&amount=1"} {
 		rec := e.widgetDo(t, http.MethodGet, "/widget-api/quote?"+query, session, nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: status = %d, want 400", query, rec.Code)

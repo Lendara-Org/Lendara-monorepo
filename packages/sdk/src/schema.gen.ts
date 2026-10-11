@@ -451,7 +451,7 @@ export interface components {
             }[];
         };
         /** @enum {string} */
-        FiatCurrency: "CRC" | "ARS" | "BRL";
+        FiatCurrency: "CRC" | "ARS" | "CLP";
         /**
          * @description Decimal string with up to 2 decimals.
          * @example 10000.00
