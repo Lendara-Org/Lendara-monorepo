@@ -1,0 +1,46 @@
+{
+  "name": "@lendara/widget",
+  "version": "0.1.0",
+  "description": "Opens the Lendara sandbox on-ramp widget in a modal or popup and reports the deposit status.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lendara-Org/Lendara-monorepo.git",
+    "directory": "packages/widget"
+  },
+  "keywords": [
+    "stellar",
+    "usdc",
+    "on-ramp",
+    "widget",
+    "lendara"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "typescript": "5.9.3"
+  }
+}
