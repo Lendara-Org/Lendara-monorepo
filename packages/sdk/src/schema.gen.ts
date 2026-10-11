@@ -295,7 +295,8 @@ export interface paths {
         put?: never;
         /**
          * Simulate the user's fiat payment
-         * @description The outcome depends on the amount's decimals (sandbox scenarios).
+         * @description The widget picks the scenario from the test card the user entered.
+         *     Card details never reach the API: only the scenario does.
          */
         post: operations["simulateWidgetPayment"];
         delete?: never;
@@ -452,7 +453,7 @@ export interface components {
         /** @enum {string} */
         FiatCurrency: "CRC" | "ARS" | "BRL";
         /**
-         * @description Decimal string with up to 2 decimals. The decimals select the sandbox scenario.
+         * @description Decimal string with up to 2 decimals.
          * @example 10000.00
          */
         FiatAmount: string;
@@ -509,6 +510,18 @@ export interface components {
         WidgetConfirmRequest: {
             fiat_currency: components["schemas"]["FiatCurrency"];
             amount: components["schemas"]["FiatAmount"];
+        };
+        /**
+         * @description Simulated outcome of a deposit:
+         *     - `approved`: paid on Stellar right away.
+         *     - `kyc_rejected`: ends in `error`.
+         *     - `payment_not_received`: ends in `expired`.
+         *     - `delayed`: approved after 30 s in `pending_anchor`.
+         * @enum {string}
+         */
+        SandboxScenario: "approved" | "kyc_rejected" | "payment_not_received" | "delayed";
+        WidgetSimulatePaymentRequest: {
+            scenario: components["schemas"]["SandboxScenario"];
         };
         /** @description Simulated quote. Rates and fee are fictitious. */
         Quote: {
@@ -1009,7 +1022,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WidgetSimulatePaymentRequest"];
+            };
+        };
         responses: {
             /** @description Updated transaction. Poll `GET /widget-api/transaction` for progress. */
             200: {
@@ -1020,6 +1037,7 @@ export interface operations {
                     "application/json": components["schemas"]["WidgetTransaction"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
         };
