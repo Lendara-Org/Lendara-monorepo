@@ -5,7 +5,7 @@ API_DIR := apps/api
 GO_TOOL := go tool -modfile=tools.mod
 GOOSE   := $(GO_TOOL) goose -dir migrations postgres "$(DATABASE_URL)"
 
-.PHONY: install db-up db-down setup-testnet dev-api dev-web migrate migrate-down migrate-reset migrate-status \
+.PHONY: install db-up db-down setup-testnet dev-api dev-web dev-demo migrate migrate-down migrate-reset migrate-status \
 	lint lint-js lint-api lint-openapi codegen codegen-api codegen-sdk typecheck test test-js test-api vuln-api build build-js build-api
 
 install:
@@ -25,6 +25,9 @@ dev-api:
 
 dev-web:
 	pnpm --filter @lendara/web dev
+
+dev-demo:
+	pnpm --filter @lendara/demo dev
 
 migrate:
 	cd $(API_DIR) && $(GOOSE) up
