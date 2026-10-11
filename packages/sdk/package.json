@@ -1,16 +1,49 @@
 {
-  "name": "@lendara/sdk",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@lendara/ramp",
+  "version": "0.1.0",
+  "description": "Server-side client for the Lendara sandbox on-ramp API (fiat to USDC on Stellar testnet).",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lendara-Org/Lendara-monorepo.git",
+    "directory": "packages/sdk"
+  },
+  "keywords": [
+    "stellar",
+    "usdc",
+    "on-ramp",
+    "sep-24",
+    "lendara"
+  ],
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
   "scripts": {
     "codegen": "openapi-typescript ../../openapi.yaml --output src/schema.gen.ts",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "devDependencies": {
+    "@types/node": "24.19.1",
     "openapi-typescript": "7.13.0",
     "typescript": "5.9.3"
   }
