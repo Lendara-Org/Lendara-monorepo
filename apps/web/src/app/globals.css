@@ -21,6 +21,15 @@
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --default-transition-duration: 200ms;
   --default-transition-timing-function: var(--ease-standard);
+
+  --animate-step-in: step-in 200ms var(--ease-standard);
+
+  @keyframes step-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
 }
 
 @theme inline {

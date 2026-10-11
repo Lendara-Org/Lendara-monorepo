@@ -2,6 +2,7 @@ import type { components } from "@lendara/sdk";
 
 type Schemas = components["schemas"];
 export type FiatCurrency = Schemas["FiatCurrency"];
+export type SandboxScenario = Schemas["SandboxScenario"];
 export type Quote = Schemas["Quote"];
 export type Transaction = Schemas["Sep24Transaction"];
 export type TransactionStatus = Schemas["Sep24TransactionStatus"];
@@ -67,9 +68,10 @@ export const widgetApi = {
       body: { fiat_currency: fiatCurrency, amount },
     }),
 
-  simulatePayment: (accessToken: string) =>
+  simulatePayment: (accessToken: string, scenario: SandboxScenario) =>
     request<WidgetTransaction>("/widget-api/transaction/simulate-payment", {
       method: "POST",
       accessToken,
+      body: { scenario },
     }),
 };
