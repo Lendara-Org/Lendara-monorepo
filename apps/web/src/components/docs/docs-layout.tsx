@@ -34,16 +34,20 @@ export function DocsLayout({ lang, slug, page, chrome, titles }: Props) {
   );
 
   return (
-    <div className="min-h-dvh bg-surface">
+    <div lang={lang} className="min-h-dvh bg-surface">
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <Link href={docHref(lang, "")} className="flex items-center gap-2.5">
-            <span className="font-display text-2xl leading-none tracking-wide">Lendara</span>
-            <span className="rounded-sm bg-wine px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none text-paper">
-              Sandbox
-            </span>
-            <span className="text-sm text-gray">{chrome.docs}</span>
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <Link href={`/${lang}`} className="flex items-center gap-2.5">
+              <span className="font-display text-2xl leading-none tracking-wide">Lendara</span>
+              <span className="rounded-sm bg-wine px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none text-paper">
+                Sandbox
+              </span>
+            </Link>
+            <Link href={docHref(lang, "")} className="text-sm text-gray hover:text-ink">
+              {chrome.docs}
+            </Link>
+          </div>
           <nav className="flex items-center gap-4 text-sm">
             <Link href="/dashboard" className="hidden text-gray hover:text-ink sm:inline">
               {chrome.dashboard}
