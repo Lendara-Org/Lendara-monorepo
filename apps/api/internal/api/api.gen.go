@@ -38,7 +38,7 @@ func (e AuthenticationRequiredType) Valid() bool {
 // Defines values for FiatCurrency.
 const (
 	ARS FiatCurrency = "ARS"
-	BRL FiatCurrency = "BRL"
+	CLP FiatCurrency = "CLP"
 	CRC FiatCurrency = "CRC"
 )
 
@@ -47,7 +47,7 @@ func (e FiatCurrency) Valid() bool {
 	switch e {
 	case ARS:
 		return true
-	case BRL:
+	case CLP:
 		return true
 	case CRC:
 		return true

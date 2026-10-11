@@ -25,7 +25,7 @@ const Fee = "0.50"
 var Rates = map[string]string{
 	"CRC": "510",
 	"ARS": "1000",
-	"BRL": "5.50",
+	"CLP": "950",
 }
 
 // ErrInvalidQuote means the currency or amount cannot be quoted.
@@ -48,7 +48,7 @@ type Quote struct {
 func NewQuote(currency, amount string) (Quote, error) {
 	rateStr, ok := Rates[currency]
 	if !ok {
-		return Quote{}, fmt.Errorf("%w: fiat_currency must be CRC, ARS or BRL", ErrInvalidQuote)
+		return Quote{}, fmt.Errorf("%w: fiat_currency must be CRC, ARS or CLP", ErrInvalidQuote)
 	}
 	if !fiatAmountPattern.MatchString(amount) {
 		return Quote{}, fmt.Errorf("%w: amount must be a positive number with up to 2 decimals", ErrInvalidQuote)

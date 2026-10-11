@@ -125,7 +125,7 @@ func TestStoreConfirm(t *testing.T) {
 	}
 
 	// A second confirmation is an invalid transition and changes nothing.
-	if _, err := s.Confirm(ctx, created.ID, Quote{FiatCurrency: "BRL", AmountIn: "1", AmountOut: "1", AmountFee: "0"}); !errors.Is(err, ErrInvalidTransition) {
+	if _, err := s.Confirm(ctx, created.ID, Quote{FiatCurrency: "CLP", AmountIn: "1", AmountOut: "1", AmountFee: "0"}); !errors.Is(err, ErrInvalidTransition) {
 		t.Errorf("second Confirm() error = %v, want ErrInvalidTransition", err)
 	}
 	if got, _ := s.Get(ctx, created.ID); *got.FiatCurrency != "CRC" {

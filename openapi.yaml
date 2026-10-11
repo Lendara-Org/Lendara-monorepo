@@ -810,7 +810,7 @@ components:
 
     FiatCurrency:
       type: string
-      enum: [CRC, ARS, BRL]
+      enum: [CRC, ARS, CLP]
 
     FiatAmount:
       type: string
