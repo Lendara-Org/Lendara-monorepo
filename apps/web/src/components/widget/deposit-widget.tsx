@@ -6,6 +6,7 @@ import { isTerminal } from "@/lib/format";
 import { getMessages, type Messages } from "@/lib/i18n";
 import { ApiError, widgetApi, type TransactionStatus, type WidgetTransaction } from "@/lib/widget-api";
 import { clearSession, startSession } from "@/lib/widget-session";
+import { Isotipo } from "../brand/isotipo";
 import { AmountStep } from "./amount-step";
 import { CardStep } from "./card-step";
 import { DetailsStep } from "./details-step";
@@ -131,7 +132,8 @@ export function DepositWidget({ transactionId, token, lang, fiatCurrency, fiatAm
         className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-surface sm:h-[min(780px,calc(100dvh-3rem))] sm:min-h-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-line sm:shadow-xl"
       >
         <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            <Isotipo className="h-5 w-auto text-crimson" />
             <span className="font-display text-2xl leading-none tracking-wide">Lendara</span>
             <span className="rounded-sm bg-wine px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none text-paper">
               Sandbox

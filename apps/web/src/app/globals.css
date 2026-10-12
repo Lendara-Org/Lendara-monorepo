@@ -30,6 +30,19 @@
       transform: translateY(4px);
     }
   }
+
+  /* Barely-there drift on hero/CTA background images, to read as a quiet video loop rather than a static photo. */
+  --animate-drift: drift 28s ease-in-out infinite;
+
+  @keyframes drift {
+    0%,
+    100% {
+      transform: scale(1.06) translate(0, 0);
+    }
+    50% {
+      transform: scale(1.12) translate(-1.2%, -1%);
+    }
+  }
 }
 
 @theme inline {
