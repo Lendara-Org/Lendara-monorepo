@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Isotipo } from "../brand/isotipo";
 
 export function Shell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
@@ -7,7 +8,8 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
           <div className="flex items-center gap-2.5">
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2">
+              <Isotipo className="h-5 w-auto text-crimson" />
               <span className="font-display text-2xl leading-none tracking-wide">Lendara</span>
               <span className="rounded-sm bg-wine px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none text-paper">
                 Sandbox

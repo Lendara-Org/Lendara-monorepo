@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DOC_LANGS, DOC_SLUGS, docHref, type DocChrome, type DocLang, type DocPage, type DocSlug } from "@/lib/docs";
 import { DEMO_URL } from "@/lib/site";
+import { Isotipo } from "../brand/isotipo";
 
 type Props = {
   lang: DocLang;
@@ -38,7 +39,8 @@ export function DocsLayout({ lang, slug, page, chrome, titles }: Props) {
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <Link href={`/${lang}`} className="flex items-center gap-2.5">
+            <Link href={`/${lang}`} className="flex items-center gap-2">
+              <Isotipo className="h-5 w-auto text-crimson" />
               <span className="font-display text-2xl leading-none tracking-wide">Lendara</span>
               <span className="rounded-sm bg-wine px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none text-paper">
                 Sandbox
