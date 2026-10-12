@@ -133,7 +133,7 @@ func (p *Processor) process(ctx context.Context, t db.Transaction) error {
 		return err
 	}
 	if status == transaction.StatusPendingTrust {
-		if _, err := p.store.Transition(ctx, t.ID, transaction.StatusPendingAnchor, transaction.Update{}); err != nil {
+		if t, err = p.store.Transition(ctx, t.ID, transaction.StatusPendingAnchor, transaction.Update{}); err != nil {
 			return err
 		}
 	}
@@ -198,6 +198,8 @@ func (p *Processor) hasTrustline(destination string) (bool, string, error) {
 
 // pay sends amount_out from the distribution account. The hash is stored in
 // pending_stellar before submitting, so a crash leaves a traceable record.
+// t must be the row as last read: if another worker changed it since, the
+// transition fails with transaction.ErrStale and nothing is sent.
 func (p *Processor) pay(ctx context.Context, t db.Transaction) error {
 	source, err := p.horizon.AccountDetail(horizonclient.AccountRequest{AccountID: p.distribution.Address()})
 	if err != nil {
@@ -214,13 +216,19 @@ func (p *Processor) pay(ctx context.Context, t db.Transaction) error {
 	// next_attempt_at is set here, before submitting, so a crash right after
 	// this transition still leaves the transaction due for recoverPendingStellar.
 	recheck := time.Now().Add(stellarRecheck)
-	if _, err := p.store.Transition(ctx, t.ID, transaction.StatusPendingStellar,
+	if _, err := p.store.TransitionFrom(ctx, t, transaction.StatusPendingStellar,
 		transaction.Update{StellarTransactionID: &hash, NextAttemptAt: &recheck}); err != nil {
 		return err
 	}
 
 	if _, err := p.horizon.SubmitTransaction(tx); err != nil {
-		return p.fail(ctx, t, "The Stellar payment failed: "+horizonError(err))
+		if rejected(err) {
+			return p.fail(ctx, t, "The Stellar payment failed: "+horizonError(err))
+		}
+		// A timeout or a network error says nothing about whether the payment
+		// landed: stay in pending_stellar and let recoverPendingStellar check
+		// the hash on the next attempt.
+		return fmt.Errorf("submit payment %s (outcome unknown): %w", hash, err)
 	}
 	_, err = p.store.Transition(ctx, t.ID, transaction.StatusCompleted, transaction.Update{})
 	return err
@@ -287,6 +295,17 @@ func stellarMemo(memo, memoType *string) (txnbuild.Memo, error) {
 }
 
 // horizonError summarizes a Horizon submission error with its result codes.
+// rejected reports whether Horizon definitively refused the transaction (it
+// came back with result codes), as opposed to a timeout or a network error.
+func rejected(err error) bool {
+	var hErr *horizonclient.Error
+	if !errors.As(err, &hErr) {
+		return false
+	}
+	codes, cErr := hErr.ResultCodes()
+	return cErr == nil && codes != nil
+}
+
 func horizonError(err error) string {
 	var hErr *horizonclient.Error
 	if errors.As(err, &hErr) {

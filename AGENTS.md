@@ -199,14 +199,19 @@ cualquier estado → error (con `message`)
 - Goroutine dentro del proceso de la API, cada 2 s. Toma `pending_anchor`/`pending_trust`/`pending_stellar` con
   `next_attempt_at` vencido.
 - Sin trustline → `pending_trust` (revisa cada 15 s; a la hora → `error`). Guarda el hash en `pending_stellar` antes de
-  enviar, con un `next_attempt_at` propio (10 s) como red de seguridad. Fallo de Horizon al enviar → `error` con
-  result codes; fallo al leer la cuenta → reintenta.
-- Si el proceso se cae (o Horizon no responde) entre guardar el hash y confirmar el envío, la transacción queda
+  enviar, con un `next_attempt_at` propio (10 s) como red de seguridad. Fallo al leer la cuenta → reintenta.
+- Al enviar: si Horizon responde con *result codes* es un rechazo real → `error`. Un timeout (504) o un corte de red no
+  dice si el pago llegó: la transacción se queda en `pending_stellar` y la revisión por hash lo resuelve.
+- Si el proceso se cae (o el envío queda sin respuesta) entre guardar el hash y confirmar el envío, la transacción queda
   `pending_stellar` y vuelve a aparecer en el siguiente ciclo. El worker nunca reenvía a ciegas: primero le pregunta a
   Horizon por ese hash (`TransactionDetail`). Si ya se confirmó → `completed`. Si todavía no aparece y no pasaron 5
   minutos (el *time bound* de la transacción original ya venció) → vuelve a esperar. Si pasaron 5 minutos sin
   aparecer → arma y envía un pago nuevo (`pending_stellar → pending_stellar`, único self-loop de la máquina de
   estados).
+- Los plazos (1 h en `pending_trust`, 5 min en `pending_stellar`) se miden desde `updated_at`, que solo cambia con el
+  estado: `Store.Reschedule` mueve `next_attempt_at` sin tocarlo.
+- El paso a `pending_stellar` usa `Store.TransitionFrom` con la fila que leyó el worker: si otro worker la cambió (otro
+  estado u otro hash) falla con `ErrStale` y no se envía nada. Así dos instancias nunca pagan dos veces.
 
 ### SEP-1 / SEP-10 / SEP-24
 - `stellar.toml` se genera desde la config, con CORS `*`.
