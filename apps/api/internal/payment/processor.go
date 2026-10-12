@@ -1,6 +1,7 @@
 // Package payment sends the USDC of confirmed deposits on Stellar testnet.
-// A worker in the API process picks up transactions in pending_anchor and
-// pending_trust when their next_attempt_at is due (CLAUDE.md §6.8).
+// A worker in the API process picks up transactions in pending_anchor,
+// pending_trust and pending_stellar when their next_attempt_at is due
+// (CLAUDE.md §6.8).
 package payment
 
 import (
@@ -32,12 +33,24 @@ const (
 	trustDeadline = time.Hour // then the deposit fails
 	txTimeout     = 60        // seconds
 	baseFeeStroop = 1000
+
+	// stellarRecheck is how soon a pending_stellar transaction is looked at
+	// again: either to confirm a submission still in flight, or as the safety
+	// net that lets a crash right after entering pending_stellar be noticed.
+	stellarRecheck = 10 * time.Second
+	// stellarDeadline is how long a pending_stellar transaction may stay
+	// unresolved before its submission is assumed lost (never reached
+	// Horizon) and a fresh one is attempted. It comfortably exceeds txTimeout,
+	// the time bound after which the original signed transaction can no
+	// longer be accepted by the network.
+	stellarDeadline = 5 * time.Minute
 )
 
 // Horizon is the part of horizonclient.Client the worker uses.
 type Horizon interface {
 	AccountDetail(request horizonclient.AccountRequest) (horizon.Account, error)
 	SubmitTransaction(tx *txnbuild.Transaction) (horizon.Transaction, error)
+	TransactionDetail(hash string) (horizon.Transaction, error)
 }
 
 // Processor moves deposits from pending_anchor to completed.
@@ -49,17 +62,21 @@ type Processor struct {
 	logger       *slog.Logger
 	// trustDeadline is how long a deposit waits in pending_trust.
 	trustDeadline time.Duration
+	// stellarDeadline is how long a deposit waits in pending_stellar for its
+	// submission to resolve before a fresh one is attempted.
+	stellarDeadline time.Duration
 }
 
 // New returns a Processor that pays from distribution the USDC issued by issuer.
 func New(store *transaction.Store, h Horizon, distribution *keypair.Full, issuer string, logger *slog.Logger) *Processor {
 	return &Processor{
-		store:         store,
-		horizon:       h,
-		distribution:  distribution,
-		asset:         txnbuild.CreditAsset{Code: sandbox.AssetCode, Issuer: issuer},
-		logger:        logger,
-		trustDeadline: trustDeadline,
+		store:           store,
+		horizon:         h,
+		distribution:    distribution,
+		asset:           txnbuild.CreditAsset{Code: sandbox.AssetCode, Issuer: issuer},
+		logger:          logger,
+		trustDeadline:   trustDeadline,
+		stellarDeadline: stellarDeadline,
 	}
 }
 
@@ -93,6 +110,10 @@ func (p *Processor) ProcessDue(ctx context.Context) {
 }
 
 func (p *Processor) process(ctx context.Context, t db.Transaction) error {
+	if transaction.Status(t.Status) == transaction.StatusPendingStellar {
+		return p.recoverPendingStellar(ctx, t)
+	}
+
 	trusted, reason, err := p.hasTrustline(t.StellarAccount)
 	if err != nil {
 		return err
@@ -117,6 +138,38 @@ func (p *Processor) process(ctx context.Context, t db.Transaction) error {
 		}
 	}
 	return p.pay(ctx, t)
+}
+
+// recoverPendingStellar reconciles a transaction whose previous submission
+// never resolved (the worker crashed between storing the hash and finishing
+// the Horizon call, or Horizon itself was unreachable). It never resubmits
+// blindly: it first asks Horizon about the stored hash so a payment that
+// actually landed is recorded as completed instead of sent twice.
+func (p *Processor) recoverPendingStellar(ctx context.Context, t db.Transaction) error {
+	if t.StellarTransactionID == nil {
+		return p.fail(ctx, t, "Lost track of the Stellar payment: no transaction hash was recorded.")
+	}
+
+	detail, err := p.horizon.TransactionDetail(*t.StellarTransactionID)
+	switch {
+	case err == nil:
+		if !detail.Successful {
+			return p.fail(ctx, t, "The Stellar payment failed: "+*t.StellarTransactionID)
+		}
+		_, err := p.store.Transition(ctx, t.ID, transaction.StatusCompleted, transaction.Update{})
+		return err
+	case horizonclient.IsNotFoundError(err):
+		if time.Since(t.UpdatedAt) < p.stellarDeadline {
+			// Still within the original time bounds: it may yet land (Horizon
+			// can lag briefly behind submission). Check back shortly.
+			return p.store.Reschedule(ctx, t.ID, time.Now().Add(stellarRecheck))
+		}
+		// The original transaction's time bounds have expired, so the network
+		// will never accept it now: safe to build and submit a fresh one.
+		return p.pay(ctx, t)
+	default:
+		return fmt.Errorf("check stellar transaction %s: %w", *t.StellarTransactionID, err) // retried on the next tick
+	}
 }
 
 // hasTrustline reports whether the destination can receive USDC; if not,
@@ -158,8 +211,11 @@ func (p *Processor) pay(ctx context.Context, t db.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("hash payment: %w", err)
 	}
+	// next_attempt_at is set here, before submitting, so a crash right after
+	// this transition still leaves the transaction due for recoverPendingStellar.
+	recheck := time.Now().Add(stellarRecheck)
 	if _, err := p.store.Transition(ctx, t.ID, transaction.StatusPendingStellar,
-		transaction.Update{StellarTransactionID: &hash}); err != nil {
+		transaction.Update{StellarTransactionID: &hash, NextAttemptAt: &recheck}); err != nil {
 		return err
 	}
 

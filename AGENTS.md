@@ -196,9 +196,17 @@ cualquier estado → error (con `message`)
   solo para mostrar una estimación: si cambian, actualizar ambos.)
 
 ### Worker de pagos (`internal/payment`)
-- Goroutine dentro del proceso de la API, cada 2 s. Toma `pending_anchor`/`pending_trust` con `next_attempt_at` vencido.
+- Goroutine dentro del proceso de la API, cada 2 s. Toma `pending_anchor`/`pending_trust`/`pending_stellar` con
+  `next_attempt_at` vencido.
 - Sin trustline → `pending_trust` (revisa cada 15 s; a la hora → `error`). Guarda el hash en `pending_stellar` antes de
-  enviar. Fallo de Horizon al enviar → `error` con result codes; fallo al leer la cuenta → reintenta.
+  enviar, con un `next_attempt_at` propio (10 s) como red de seguridad. Fallo de Horizon al enviar → `error` con
+  result codes; fallo al leer la cuenta → reintenta.
+- Si el proceso se cae (o Horizon no responde) entre guardar el hash y confirmar el envío, la transacción queda
+  `pending_stellar` y vuelve a aparecer en el siguiente ciclo. El worker nunca reenvía a ciegas: primero le pregunta a
+  Horizon por ese hash (`TransactionDetail`). Si ya se confirmó → `completed`. Si todavía no aparece y no pasaron 5
+  minutos (el *time bound* de la transacción original ya venció) → vuelve a esperar. Si pasaron 5 minutos sin
+  aparecer → arma y envía un pago nuevo (`pending_stellar → pending_stellar`, único self-loop de la máquina de
+  estados).
 
 ### SEP-1 / SEP-10 / SEP-24
 - `stellar.toml` se genera desde la config, con CORS `*`.

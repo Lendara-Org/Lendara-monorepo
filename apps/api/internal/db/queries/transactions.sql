@@ -54,9 +54,11 @@ SET fiat_currency = $2, amount_in = $3, amount_out = $4, amount_fee = $5, update
 WHERE id = $1;
 
 -- name: ListDueTransactions :many
--- Transactions waiting for the payment worker, oldest first.
+-- Transactions waiting for the payment worker, oldest first. pending_stellar
+-- is included so a submission left unresolved by a crash gets reconciled
+-- (checked against Horizon, then retried or failed) instead of staying stuck.
 SELECT * FROM transactions
-WHERE status IN ('pending_anchor', 'pending_trust') AND next_attempt_at <= now()
+WHERE status IN ('pending_anchor', 'pending_trust', 'pending_stellar') AND next_attempt_at <= now()
 ORDER BY next_attempt_at
 LIMIT @max_results;
 

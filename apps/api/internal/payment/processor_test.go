@@ -24,6 +24,11 @@ type fakeHorizon struct {
 	accounts  map[string]horizon.Account
 	submitErr error
 	submitted []*txnbuild.Transaction
+	// ledger simulates transactions Horizon actually knows about, keyed by
+	// hash, for TransactionDetail. Tests that need to simulate "it landed
+	// despite the worker never seeing the SubmitTransaction response" set
+	// this directly instead of going through SubmitTransaction.
+	ledger map[string]horizon.Transaction
 }
 
 func (f *fakeHorizon) AccountDetail(req horizonclient.AccountRequest) (horizon.Account, error) {
@@ -35,7 +40,23 @@ func (f *fakeHorizon) AccountDetail(req horizonclient.AccountRequest) (horizon.A
 
 func (f *fakeHorizon) SubmitTransaction(tx *txnbuild.Transaction) (horizon.Transaction, error) {
 	f.submitted = append(f.submitted, tx)
-	return horizon.Transaction{}, f.submitErr
+	if f.submitErr != nil {
+		return horizon.Transaction{}, f.submitErr
+	}
+	hash, _ := tx.HashHex(network.TestNetworkPassphrase)
+	result := horizon.Transaction{Hash: hash, Successful: true}
+	if f.ledger == nil {
+		f.ledger = map[string]horizon.Transaction{}
+	}
+	f.ledger[hash] = result
+	return result, nil
+}
+
+func (f *fakeHorizon) TransactionDetail(hash string) (horizon.Transaction, error) {
+	if tx, ok := f.ledger[hash]; ok {
+		return tx, nil
+	}
+	return horizon.Transaction{}, &horizonclient.Error{Problem: problem.P{Type: "https://stellar.org/horizon-errors/not_found"}}
 }
 
 type env struct {
@@ -227,6 +248,85 @@ func TestPaymentRetriesWhenHorizonIsDown(t *testing.T) {
 	}
 	if got, _ := e.store.Get(t.Context(), deposit.ID); got.Status != string(transaction.StatusPendingAnchor) {
 		t.Errorf("status = %s, want pending_anchor (retried later)", got.Status)
+	}
+}
+
+// stuckPendingStellar simulates a worker crash right after pay() stored the
+// hash but before it (or we) learned whether SubmitTransaction succeeded: it
+// moves deposit straight to pending_stellar with a hash of its own, bypassing
+// SubmitTransaction entirely.
+func (e env) stuckPendingStellar(t *testing.T, deposit db.Transaction, hash string) db.Transaction {
+	t.Helper()
+	now := time.Now()
+	tx, err := e.store.Transition(t.Context(), deposit.ID, transaction.StatusPendingStellar,
+		transaction.Update{StellarTransactionID: &hash, NextAttemptAt: &now})
+	if err != nil {
+		t.Fatalf("Transition() to pending_stellar error = %v", err)
+	}
+	return tx
+}
+
+func TestPaymentRecoversWhenStuckSubmissionLanded(t *testing.T) {
+	e := newEnv(t)
+	destination := keypair.MustRandom().Address()
+	e.addAccount(destination, true)
+	deposit := e.approvedDeposit(t, destination, nil)
+	stuck := e.stuckPendingStellar(t, deposit, "deadbeef")
+	// Horizon actually has it, even though our worker never saw that.
+	e.horizon.ledger = map[string]horizon.Transaction{"deadbeef": {Hash: "deadbeef", Successful: true}}
+
+	got := e.process(t, stuck)
+
+	if got.Status != string(transaction.StatusCompleted) {
+		t.Fatalf("status = %s (%v), want completed", got.Status, got.Message)
+	}
+	if len(e.horizon.submitted) != 0 {
+		t.Errorf("submitted %d transactions, want 0 (must not pay twice)", len(e.horizon.submitted))
+	}
+	if got.StellarTransactionID == nil || *got.StellarTransactionID != "deadbeef" {
+		t.Errorf("stellar_transaction_id = %v, want the original deadbeef hash kept", got.StellarTransactionID)
+	}
+}
+
+func TestPaymentRecoversWhenStuckSubmissionNeverLanded(t *testing.T) {
+	e := newEnv(t)
+	destination := keypair.MustRandom().Address()
+	e.addAccount(destination, true)
+	deposit := e.approvedDeposit(t, destination, nil)
+	stuck := e.stuckPendingStellar(t, deposit, "deadbeef")
+	e.p.stellarDeadline = 0 // the original submission's time bounds are long expired
+
+	got := e.process(t, stuck)
+
+	if got.Status != string(transaction.StatusCompleted) {
+		t.Fatalf("status = %s (%v), want completed", got.Status, got.Message)
+	}
+	if len(e.horizon.submitted) != 1 {
+		t.Fatalf("submitted %d transactions, want 1 (a fresh payment)", len(e.horizon.submitted))
+	}
+	if got.StellarTransactionID == nil || *got.StellarTransactionID == "deadbeef" {
+		t.Errorf("stellar_transaction_id = %v, want a new hash, not the stale deadbeef", got.StellarTransactionID)
+	}
+}
+
+func TestPaymentWaitsWhenStuckSubmissionStatusIsUnknown(t *testing.T) {
+	e := newEnv(t)
+	destination := keypair.MustRandom().Address()
+	e.addAccount(destination, true)
+	deposit := e.approvedDeposit(t, destination, nil)
+	stuck := e.stuckPendingStellar(t, deposit, "deadbeef")
+	// e.p.stellarDeadline keeps its default (5 minutes): nowhere near expired.
+
+	got := e.process(t, stuck)
+
+	if got.Status != string(transaction.StatusPendingStellar) {
+		t.Fatalf("status = %s (%v), want pending_stellar (still waiting)", got.Status, got.Message)
+	}
+	if len(e.horizon.submitted) != 0 {
+		t.Errorf("submitted %d transactions, want 0 (too early to assume it was lost)", len(e.horizon.submitted))
+	}
+	if got.NextAttemptAt == nil || !got.NextAttemptAt.After(time.Now()) {
+		t.Errorf("next_attempt_at = %v, want a later recheck", got.NextAttemptAt)
 	}
 }
 

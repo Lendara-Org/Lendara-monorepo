@@ -26,8 +26,10 @@ var transitions = map[Status][]Status{
 	StatusPendingUserTransferStart: {StatusPendingAnchor, StatusExpired, StatusError},
 	StatusPendingAnchor:            {StatusPendingStellar, StatusPendingTrust, StatusError},
 	// The user added the USDC trustline: retry the payment.
-	StatusPendingTrust:   {StatusPendingAnchor, StatusError},
-	StatusPendingStellar: {StatusCompleted, StatusError},
+	StatusPendingTrust: {StatusPendingAnchor, StatusError},
+	// A prior submission that never resolved (e.g. the worker crashed before
+	// submitting or confirming it): allow a fresh attempt with a new hash.
+	StatusPendingStellar: {StatusPendingStellar, StatusCompleted, StatusError},
 }
 
 // CheckTransition returns an error if a transaction cannot move from -> to.

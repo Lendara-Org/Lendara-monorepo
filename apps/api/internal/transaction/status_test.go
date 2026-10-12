@@ -25,6 +25,10 @@ func TestCheckTransition(t *testing.T) {
 		{StatusPendingTrust, StatusError}:                     true,
 		{StatusPendingStellar, StatusCompleted}:               true,
 		{StatusPendingStellar, StatusError}:                   true,
+		// A stuck submission that never resolved (e.g. the worker crashed
+		// before confirming it): the payment worker checks Horizon first and
+		// only takes this path once it's safe to try again (AGENTS.md §6).
+		{StatusPendingStellar, StatusPendingStellar}: true,
 	}
 	for _, from := range allStatuses {
 		for _, to := range allStatuses {

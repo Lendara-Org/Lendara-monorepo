@@ -187,12 +187,14 @@ func (q *Queries) GetTransactionForUpdate(ctx context.Context, id uuid.UUID) (Tr
 
 const listDueTransactions = `-- name: ListDueTransactions :many
 SELECT id, project_id, kind, status, asset_code, sep10_subject, stellar_account, memo, memo_type, fiat_currency, amount_in, amount_out, amount_fee, scenario, stellar_transaction_id, message, started_at, updated_at, completed_at, next_attempt_at FROM transactions
-WHERE status IN ('pending_anchor', 'pending_trust') AND next_attempt_at <= now()
+WHERE status IN ('pending_anchor', 'pending_trust', 'pending_stellar') AND next_attempt_at <= now()
 ORDER BY next_attempt_at
 LIMIT $1
 `
 
-// Transactions waiting for the payment worker, oldest first.
+// Transactions waiting for the payment worker, oldest first. pending_stellar
+// is included so a submission left unresolved by a crash gets reconciled
+// (checked against Horizon, then retried or failed) instead of staying stuck.
 func (q *Queries) ListDueTransactions(ctx context.Context, maxResults int32) ([]Transaction, error) {
 	rows, err := q.db.Query(ctx, listDueTransactions, maxResults)
 	if err != nil {
