@@ -70,7 +70,7 @@ export function Landing({ lang, t }: { lang: DocLang; t: LandingCopy }) {
               fill
               priority
               sizes="100vw"
-              className="animate-drift object-cover"
+              className="object-cover motion-safe:animate-drift"
             />
             <div className="absolute inset-0 bg-paper/60 backdrop-blur-[2px]" />
           </div>
@@ -247,7 +247,7 @@ export function Landing({ lang, t }: { lang: DocLang; t: LandingCopy }) {
         {/* Final CTA */}
         <section className="relative isolate overflow-hidden">
           <div aria-hidden className="absolute inset-0 -z-10">
-            <Image src="/brand/hero-object.jpg" alt="" fill sizes="100vw" className="animate-drift object-cover" />
+            <Image src="/brand/hero-object.jpg" alt="" fill sizes="100vw" className="object-cover motion-safe:animate-drift" />
             <div className="absolute inset-0 bg-paper/60 backdrop-blur-[2px]" />
           </div>
           <div className="mx-auto max-w-6xl px-4 py-16 text-center lg:py-24">
