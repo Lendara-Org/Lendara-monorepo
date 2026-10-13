@@ -551,6 +551,16 @@ export interface components {
         };
     };
     responses: {
+        /** @description Rate limit exceeded. Retry after the number of seconds in `Retry-After`. */
+        TooManyRequests: {
+            headers: {
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Invalid request. */
         BadRequest: {
             headers: {
@@ -732,6 +742,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["AuthenticationRequired"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getSep24Transaction: {
@@ -817,6 +828,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getProject: {
@@ -864,6 +876,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listTransactions: {
