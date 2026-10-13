@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The SDK ships TypeScript sources inside the monorepo.
@@ -21,7 +23,17 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-store" },
         ],
       },
+      {
+        // SEP-1: wallets fetch stellar.toml from the browser.
+        source: "/.well-known/stellar.toml",
+        headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
+      },
     ];
+  },
+  async rewrites() {
+    // This domain is the issuer's home_domain (the API's is longer than the
+    // 32 characters Stellar allows), so it serves the API's stellar.toml.
+    return [{ source: "/.well-known/stellar.toml", destination: `${apiBaseUrl}/.well-known/stellar.toml` }];
   },
 };
 

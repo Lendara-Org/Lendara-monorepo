@@ -215,6 +215,13 @@ cualquier estado → error (con `message`)
 
 ### SEP-1 / SEP-10 / SEP-24
 - `stellar.toml` se genera desde la config, con CORS `*`.
+- **Home domain:** el del emisor del USDC en testnet es `lendara-monorepo-fixh.vercel.app`, porque Stellar limita el
+  `home_domain` de una cuenta a 32 caracteres y el dominio de Railway tiene 36. La web reescribe
+  `/.well-known/stellar.toml` al de la API (`apps/web/next.config.ts`). `STELLAR_HOME_DOMAIN` es una lista separada
+  por comas que SEP-10 acepta toda; la primera es la de por defecto y la que `setup-testnet` pone en el emisor. En
+  Railway: `lendara-monorepo-fixh.vercel.app,lendaraweb-production.up.railway.app`.
+  ⚠️ El emisor es compartido: en el `.env` local usa `STELLAR_HOME_DOMAIN=lendara-monorepo-fixh.vercel.app,localhost:8080`
+  para que `make setup-testnet` no le vuelva a poner `localhost:8080`.
 - SEP-10: JWT HS256 con `SEP10_JWT_SECRET` (≥ 32 caracteres), TTL 24 h, `sub` = `G…`, `M…` o `G…:memo`. `client_domain`
   no se soporta. Cuenta existente → umbral medio; inexistente → firma de la master key.
 - Auth SEP-24: middleware con lista de operationIDs (`internal/server/auth.go`); sin JWT válido → 403
