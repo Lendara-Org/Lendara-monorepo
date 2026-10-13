@@ -34,8 +34,11 @@ type Config struct {
 
 // Stellar holds the testnet accounts created by `make setup-testnet`.
 type Stellar struct {
-	HorizonURL   string
-	HomeDomain   string
+	HorizonURL string
+	// HomeDomains are the domains whose stellar.toml points to this API
+	// (STELLAR_HOME_DOMAIN, comma-separated). The first is the default
+	// SEP-10 home_domain and the one setup-testnet sets on the issuer.
+	HomeDomains  []string
 	IssuerPublic string
 	Distribution *keypair.Full
 	Signing      *keypair.Full
@@ -66,7 +69,7 @@ func Load(getenv func(string) string) (Config, error) {
 		WebBaseURL:  strings.TrimSuffix(optional("WEB_BASE_URL", "http://localhost:3000"), "/"),
 		Stellar: Stellar{
 			HorizonURL:   optional("STELLAR_HORIZON_URL", "https://horizon-testnet.stellar.org"),
-			HomeDomain:   optional("STELLAR_HOME_DOMAIN", "localhost:8080"),
+			HomeDomains:  ParseHomeDomains(optional("STELLAR_HOME_DOMAIN", "localhost:8080")),
 			IssuerPublic: required("STELLAR_ISSUER_PUBLIC_KEY"),
 		},
 	}
@@ -80,6 +83,9 @@ func Load(getenv func(string) string) (Config, error) {
 		if parsed, err := url.Parse(u); err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			errs = append(errs, fmt.Errorf("%s must be an absolute URL", key))
 		}
+	}
+	if len(cfg.Stellar.HomeDomains) == 0 {
+		errs = append(errs, errors.New("STELLAR_HOME_DOMAIN must list at least one domain"))
 	}
 	if cfg.Stellar.IssuerPublic != "" && !strkey.IsValidEd25519PublicKey(cfg.Stellar.IssuerPublic) {
 		errs = append(errs, errors.New("STELLAR_ISSUER_PUBLIC_KEY is not a valid public key"))
@@ -112,4 +118,15 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("invalid config: %w", err)
 	}
 	return cfg, nil
+}
+
+// ParseHomeDomains splits a comma-separated STELLAR_HOME_DOMAIN value.
+func ParseHomeDomains(v string) []string {
+	var domains []string
+	for d := range strings.SplitSeq(v, ",") {
+		if d = strings.TrimSpace(d); d != "" {
+			domains = append(domains, d)
+		}
+	}
+	return domains
 }

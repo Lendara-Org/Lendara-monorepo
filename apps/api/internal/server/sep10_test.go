@@ -32,7 +32,7 @@ func sep10Server(t *testing.T) http.Handler {
 	cfg := config.Config{
 		APIBaseURL: "http://localhost:8080",
 		JWTSecret:  []byte(strings.Repeat("s", 32)),
-		Stellar:    config.Stellar{HomeDomain: "localhost:8080", Signing: keypair.MustRandom()},
+		Stellar:    config.Stellar{HomeDomains: []string{"localhost:8080"}, Signing: keypair.MustRandom()},
 	}
 	auth, err := sep10.New(cfg, noAccounts{})
 	if err != nil {

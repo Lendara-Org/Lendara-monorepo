@@ -47,7 +47,7 @@ func newService(t *testing.T, accounts AccountLoader) *Service {
 	cfg := config.Config{
 		APIBaseURL: "https://api.lendara.test",
 		JWTSecret:  []byte(strings.Repeat("s", 32)),
-		Stellar:    config.Stellar{HomeDomain: "lendara.test", Signing: randomKP(t)},
+		Stellar:    config.Stellar{HomeDomains: []string{"lendara.test", "web.lendara.test"}, Signing: randomKP(t)},
 	}
 	s, err := New(cfg, accounts)
 	if err != nil {
@@ -132,6 +132,19 @@ func TestTokenForNewAccount(t *testing.T) {
 	}
 	if subject != client.Address() {
 		t.Errorf("subject = %q, want %q", subject, client.Address())
+	}
+}
+
+func TestTokenForOtherHomeDomain(t *testing.T) {
+	s := newService(t, fakeAccounts{})
+	client := randomKP(t)
+
+	challenge, err := s.Challenge(client.Address(), "", "web.lendara.test")
+	if err != nil {
+		t.Fatalf("Challenge() error = %v", err)
+	}
+	if _, err := s.Token(sign(t, challenge, client)); err != nil {
+		t.Errorf("Token() error = %v, want a token for the second home domain", err)
 	}
 }
 

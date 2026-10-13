@@ -62,8 +62,21 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LogLevel != slog.LevelInfo {
 		t.Errorf("LogLevel = %v, want %v", cfg.LogLevel, slog.LevelInfo)
 	}
+	if len(cfg.Stellar.HomeDomains) != 1 || cfg.Stellar.HomeDomains[0] != "localhost:8080" {
+		t.Errorf("HomeDomains = %q, want [localhost:8080]", cfg.Stellar.HomeDomains)
+	}
 	if cfg.Stellar.HorizonURL != "https://horizon-testnet.stellar.org" {
 		t.Errorf("HorizonURL = %q, want testnet", cfg.Stellar.HorizonURL)
+	}
+}
+
+func TestParseHomeDomains(t *testing.T) {
+	got := ParseHomeDomains(" web.example.com, api.example.com ,,")
+	if strings.Join(got, "|") != "web.example.com|api.example.com" {
+		t.Errorf("ParseHomeDomains() = %q, want [web.example.com api.example.com]", got)
+	}
+	if got := ParseHomeDomains(" , "); len(got) != 0 {
+		t.Errorf("ParseHomeDomains(empty) = %q, want none", got)
 	}
 }
 
