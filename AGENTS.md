@@ -234,6 +234,10 @@ cualquier estado → error (con `message`)
 - `GET /v1/transactions` (cursor = id de la última transacción, `limit` 1–100) y `GET /v1/transactions/{id}` (otro
   proyecto → 404). Reutilizan el schema `Sep24Transaction`.
 - Errores en JSON `{"error": "…"}`.
+- **Rate limiting** (`internal/server/ratelimit.go`, en memoria, ventana fija): `POST /v1/projects` 10/h por IP,
+  `POST /v1/sessions` 60/min por proyecto, `POST /sep24/transactions/deposit/interactive` 30/min por cuenta SEP-10.
+  Al pasarse → 429 con `Retry-After`. La IP es la **última** entrada de `X-Forwarded-For` (la que agrega el proxy de
+  Railway). Con varias instancias cada una contaría por su lado.
 
 ### Código del backend
 - `handlers.New(handlers.Config{...})` recibe todas las dependencias; `server.New(logger, db, handlers, server.Auth{SEP10,
