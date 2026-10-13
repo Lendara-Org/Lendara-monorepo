@@ -80,6 +80,28 @@ func TestParseHomeDomains(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidHomeDomains(t *testing.T) {
+	for _, v := range []string{
+		"https://:web.example.com,api.example.com",
+		"https://web.example.com",
+		"web.example.com/path",
+		"web.example.com api.example.com",
+		":8080",
+		strings.Repeat("a", 60) + ".com",
+	} {
+		vars := validEnv(t)
+		vars["STELLAR_HOME_DOMAIN"] = v
+		if _, err := Load(env(vars)); err == nil || !strings.Contains(err.Error(), "STELLAR_HOME_DOMAIN") {
+			t.Errorf("STELLAR_HOME_DOMAIN=%q: Load() error = %v, want it rejected", v, err)
+		}
+	}
+	vars := validEnv(t)
+	vars["STELLAR_HOME_DOMAIN"] = "lendara-monorepo-fixh.vercel.app,localhost:8080"
+	if _, err := Load(env(vars)); err != nil {
+		t.Errorf("valid domains: Load() error = %v", err)
+	}
+}
+
 func TestLoadReportsAllErrors(t *testing.T) {
 	_, err := Load(env(map[string]string{"LOG_LEVEL": "loud", "API_BASE_URL": "not-a-url"}))
 	if err == nil {
