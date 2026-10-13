@@ -320,7 +320,7 @@ make dev-demo        # http://localhost:3001 (necesita LENDARA_API_KEY de un pro
 
 ---
 
-## 10. Estado (actualizado 2026-10-11)
+## 10. Estado (actualizado 2026-10-12)
 
 **Hecho y desplegado:** setup del monorepo y CI; SEP-1, SEP-10, SEP-24 (depósito); simulador fiat con escenarios por
 tarjeta; worker de pagos con `pending_trust`; widget tipo checkout (es/en); API `/v1` con proyectos y API keys;
@@ -328,8 +328,10 @@ tarjeta; worker de pagos con `pending_trust`; widget tipo checkout (es/en); API 
 dashboard; docs bilingües; landing bilingüe; README.
 
 **Pendiente:**
-- Validar con la **Demo Wallet de SDF** (SEP-10 + depósito SEP-24) y con la anchor test suite de SDF; actualizar la
-  tabla "Validation" del README.
+- ✅ Validado el 2026-10-12: anchor test suite de SDF (SEP-1 5/5, SEP-10 16/16, los 27 tests de depósito SEP-24; solo
+  fallan los de retiro) y depósito completo desde la Demo Wallet de SDF. Resultados y hashes en la tabla "Validation"
+  del README. Para repetir la suite con los tests `pending_`/`completed` hace falta un `--sep-config` con una cuenta de
+  testnet y dos depósitos suyos.
 - Video de 2–3 minutos para la entrega.
 - Extras, en orden: webhooks para integradores (HMAC) → retiros SEP-24 → SEP-12 (KYC simulado) → SEP-38 → SEP-31.
 

@@ -532,13 +532,26 @@ Publish with **pnpm**: in the monorepo, `exports` point to the TypeScript source
 
 ## Validation
 
+Run against the deployed sandbox on 2026-10-12. Every payment below is a real testnet transaction you can open in
+Stellar Expert.
+
 | Check | Result |
 |---|---|
-| Deposit end to end on the deployed sandbox | ✅ Testnet USDC delivered; e.g. [this payment](https://stellar.expert/explorer/testnet/tx/5ecead5705afc23cf4b4878932ab11169047b17c82faa196242a7b69580eecde) (25,000 CRC → 48.5196078 USDC) made from the demo |
+| [SDF anchor test suite](https://github.com/stellar/stellar-anchor-tests) (`@stellar/anchor-tests` 0.6.22), SEP-1, 10 and 24 | ✅ SEP-1 5/5, SEP-10 16/16 and all 27 SEP-24 deposit tests pass. The 12 failures and 1 skip are withdrawal tests (deposits only for now). The tool's summary line reads 47 passed / 13 failed; its per-test output lists 48 ✔ and 12 ✖ |
+| [SDF Demo Wallet](https://demo-wallet.stellar.org): SEP-10 + SEP-24 deposit with card 4242 | ✅ `completed`: [`330f8b2a…687b83`](https://stellar.expert/explorer/testnet/tx/330f8b2abb4b9f01d7cd1edf9d0dea6fdd924c6a0767ba416edde101fe687b83) (10,000 CRC → 19.1078431 USDC) |
+| Deposit from the demo app (`/v1` + `@lendara/widget`) | ✅ `completed`: [`5ecead57…80eecde`](https://stellar.expert/explorer/testnet/tx/5ecead5705afc23cf4b4878932ab11169047b17c82faa196242a7b69580eecde) (25,000 CRC → 48.5196078 USDC) |
+| SEP-24 deposit driven through the API (used by the anchor tests) | ✅ `completed`: [`7394f626…a9d0e51`](https://stellar.expert/explorer/testnet/tx/7394f626cf08684232fe9960711923d3824f831afaf6b46ad104e2589a9d0e51) (10,000 CRC → 19.1078431 USDC) |
 | All four test cards | ✅ `completed`, `error`, `expired` and delayed `completed` |
 | Widget in modal and popup, desktop and mobile | ✅ |
-| SDF Demo Wallet (SEP-10 + SEP-24 deposit) | ⏳ Pending |
-| SDF anchor test suite | ⏳ Pending |
+
+To run the anchor tests yourself:
+
+```bash
+npx @stellar/anchor-tests@0.6.22 -h https://lendara-monorepo-fixh.vercel.app -a USDC -s 1 10 24
+```
+
+The four SEP-24 tests for `pending_` and `completed` transactions need a `--sep-config` file with a funded testnet
+account and two of its deposits (one pending, one completed); without it they are skipped.
 
 ---
 
