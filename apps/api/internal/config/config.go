@@ -87,6 +87,11 @@ func Load(getenv func(string) string) (Config, error) {
 	if len(cfg.Stellar.HomeDomains) == 0 {
 		errs = append(errs, errors.New("STELLAR_HOME_DOMAIN must list at least one domain"))
 	}
+	for _, d := range cfg.Stellar.HomeDomains {
+		if !validHomeDomain(d) {
+			errs = append(errs, fmt.Errorf("STELLAR_HOME_DOMAIN: %q must be a bare host such as example.com or localhost:8080 (no scheme, path or spaces)", d))
+		}
+	}
 	if cfg.Stellar.IssuerPublic != "" && !strkey.IsValidEd25519PublicKey(cfg.Stellar.IssuerPublic) {
 		errs = append(errs, errors.New("STELLAR_ISSUER_PUBLIC_KEY is not a valid public key"))
 	}
@@ -118,6 +123,19 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("invalid config: %w", err)
 	}
 	return cfg, nil
+}
+
+// maxHomeDomain keeps the SEP-10 challenge key "<home_domain> auth" within
+// the 64 bytes of a manage_data name.
+const maxHomeDomain = 64 - len(" auth")
+
+// validHomeDomain reports whether d is a host with an optional port.
+func validHomeDomain(d string) bool {
+	if len(d) > maxHomeDomain || strings.ContainsAny(d, "/ \t@?#") {
+		return false
+	}
+	u, err := url.Parse("//" + d)
+	return err == nil && u.Host == d && u.Hostname() != ""
 }
 
 // ParseHomeDomains splits a comma-separated STELLAR_HOME_DOMAIN value.
