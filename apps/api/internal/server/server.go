@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/api"
 )
@@ -20,7 +21,7 @@ func New(logger *slog.Logger, db Pinger, h api.StrictServerInterface, auth Auth)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health(logger, db))
 
-	strict := api.NewStrictHandlerWithOptions(h, []api.StrictMiddlewareFunc{requireAuth(auth)}, api.StrictHTTPServerOptions{
+	strict := api.NewStrictHandlerWithOptions(h, []api.StrictMiddlewareFunc{rateLimit(rateRules, time.Now), requireAuth(auth)}, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: responseError(logger),
 	})

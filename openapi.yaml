@@ -146,6 +146,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/AuthenticationRequired"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /sep24/transaction:
     get:
@@ -246,6 +248,8 @@ paths:
                 $ref: "#/components/schemas/ProjectCreated"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /v1/project:
     get:
@@ -289,6 +293,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /v1/transactions:
     get:
@@ -507,6 +513,16 @@ components:
         type: string
 
   responses:
+    TooManyRequests:
+      description: Rate limit exceeded. Retry after the number of seconds in `Retry-After`.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     BadRequest:
       description: Invalid request.
       content:
