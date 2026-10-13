@@ -51,7 +51,7 @@ cards.
 | Developer dashboard | https://lendara-monorepo-fixh.vercel.app/dashboard |
 | Demo app that integrates Lendara | https://lendara-monorepo.vercel.app |
 | API | https://lendaraweb-production.up.railway.app |
-| `stellar.toml` (SEP-1) | https://lendaraweb-production.up.railway.app/.well-known/stellar.toml |
+| `stellar.toml` (SEP-1) | https://lendara-monorepo-fixh.vercel.app/.well-known/stellar.toml (home domain; also served by the API) |
 | npm | [`@lendara/ramp`](https://www.npmjs.com/package/@lendara/ramp) · [`@lendara/widget`](https://www.npmjs.com/package/@lendara/widget) |
 
 The API runs on Railway's free plan, which sleeps when idle: the first request after a while can take a few seconds.
@@ -95,7 +95,7 @@ widget.
 
 Any SEP-24 wallet can use Lendara with no extra code. With the
 [SDF Demo Wallet](https://demo-wallet.stellar.org) on testnet, add the asset `USDC` with the home domain
-`lendaraweb-production.up.railway.app`, add the trustline and start a **SEP-24 deposit**. See
+`lendara-monorepo-fixh.vercel.app`, add the trustline and start a **SEP-24 deposit**. See
 [For wallets](https://lendara-monorepo-fixh.vercel.app/docs/en/wallets).
 
 ---
@@ -415,7 +415,7 @@ make dev-demo         # demo on http://localhost:3001
 | `WEB_BASE_URL` | API | Public URL of the web app (interactive widget URLs). |
 | `SEP10_JWT_SECRET` | API | Signs SEP-10 and widget session JWTs. At least 32 characters. |
 | `STELLAR_HORIZON_URL` | API, demo | Horizon testnet URL. |
-| `STELLAR_HOME_DOMAIN` | API | Home domain for SEP-10 (where `stellar.toml` is served). |
+| `STELLAR_HOME_DOMAIN` | API, `setup-testnet` | Comma-separated home domains accepted by SEP-10 (where `stellar.toml` is served). The first one is the default and is set on the issuer account, so it must have at most 32 characters. |
 | `STELLAR_ISSUER_PUBLIC_KEY` | API, demo | Issuer of the test USDC. |
 | `STELLAR_ISSUER_SECRET` | `setup-testnet` | Only to issue USDC. Not needed by the API. |
 | `STELLAR_DISTRIBUTION_SECRET` | API | Account that sends USDC to users. |
@@ -483,7 +483,7 @@ The service builds `apps/api/Dockerfile`. The image includes `goose`, which runs
    GOOSE_DBSTRING=${{Postgres.DATABASE_URL}}
    PORT=8080
    API_BASE_URL=https://<api-domain>
-   STELLAR_HOME_DOMAIN=<api-domain>
+   STELLAR_HOME_DOMAIN=<web-domain>,<api-domain>
    WEB_BASE_URL=https://<web-domain>
    SEP10_JWT_SECRET=<openssl rand -hex 32>
    STELLAR_ISSUER_PUBLIC_KEY=<G...>
