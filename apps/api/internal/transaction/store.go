@@ -22,6 +22,8 @@ var (
 	ErrInvalidTransition = errors.New("invalid status transition")
 	// ErrInvalidToken means the interactive token is unknown, used or expired.
 	ErrInvalidToken = errors.New("invalid interactive token")
+	// ErrStale means the transaction changed after the caller read it.
+	ErrStale = errors.New("transaction changed since it was read")
 )
 
 // Store persists transactions, their status history and interactive tokens.
@@ -118,7 +120,14 @@ type Update struct {
 // Transition moves a transaction to a new status, validating it against the
 // state machine and recording the change in transaction_events.
 func (s *Store) Transition(ctx context.Context, id uuid.UUID, to Status, u Update) (db.Transaction, error) {
-	return s.transition(ctx, id, to, u, nil)
+	return s.transition(ctx, id, to, u, nil, nil)
+}
+
+// TransitionFrom is Transition for a caller acting on a copy it read earlier:
+// it fails with ErrStale if the status or the Stellar hash changed since, so
+// two workers holding the same row cannot both send its payment.
+func (s *Store) TransitionFrom(ctx context.Context, seen db.Transaction, to Status, u Update) (db.Transaction, error) {
+	return s.transition(ctx, seen.ID, to, u, &seen, nil)
 }
 
 // ListDue returns up to limit transactions whose next payment attempt is due.
@@ -142,7 +151,7 @@ type Quote struct {
 // Confirm stores the quote the user accepted and moves the deposit from
 // incomplete to pending_user_transfer_start.
 func (s *Store) Confirm(ctx context.Context, id uuid.UUID, q Quote) (db.Transaction, error) {
-	return s.transition(ctx, id, StatusPendingUserTransferStart, Update{}, func(tx *db.Queries) error {
+	return s.transition(ctx, id, StatusPendingUserTransferStart, Update{}, nil, func(tx *db.Queries) error {
 		return tx.SetTransactionQuote(ctx, db.SetTransactionQuoteParams{
 			ID:           id,
 			FiatCurrency: &q.FiatCurrency,
@@ -153,9 +162,10 @@ func (s *Store) Confirm(ctx context.Context, id uuid.UUID, q Quote) (db.Transact
 	})
 }
 
-// transition locks the transaction, validates the move, runs update (if any)
-// and changes the status, all in one database transaction.
-func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, u Update, update func(*db.Queries) error) (db.Transaction, error) {
+// transition locks the transaction, checks it still matches seen (if any),
+// validates the move, runs update (if any) and changes the status, all in one
+// database transaction.
+func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, u Update, seen *db.Transaction, update func(*db.Queries) error) (db.Transaction, error) {
 	var updated db.Transaction
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := db.New(tx)
@@ -165,6 +175,9 @@ func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, u Updat
 		}
 		if err != nil {
 			return fmt.Errorf("lock transaction: %w", err)
+		}
+		if seen != nil && (current.Status != seen.Status || !sameHash(current.StellarTransactionID, seen.StellarTransactionID)) {
+			return ErrStale
 		}
 		if err := CheckTransition(Status(current.Status), to); err != nil {
 			return err
@@ -192,6 +205,10 @@ func (s *Store) transition(ctx context.Context, id uuid.UUID, to Status, u Updat
 		})
 	})
 	return updated, err
+}
+
+func sameHash(a, b *string) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
 }
 
 // NewInteractiveToken returns a random one-time token for the SEP-24

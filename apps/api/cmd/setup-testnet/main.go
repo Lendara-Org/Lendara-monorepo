@@ -12,9 +12,14 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
 	"github.com/stellar/go-stellar-sdk/keypair"
+
+	"github.com/Lendara-Org/Lendara-monorepo/apps/api/internal/config"
 )
 
-const defaultHorizonURL = "https://horizon-testnet.stellar.org"
+const (
+	defaultHorizonURL = "https://horizon-testnet.stellar.org"
+	maxHomeDomain     = 32 // characters, in the SetOptions operation
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -25,7 +30,14 @@ func main() {
 
 func run() error {
 	horizonURL := envOr("STELLAR_HORIZON_URL", defaultHorizonURL)
-	homeDomain := envOr("STELLAR_HOME_DOMAIN", "localhost:8080")
+	homeDomains := envOr("STELLAR_HOME_DOMAIN", "localhost:8080")
+	// The issuer's home_domain is the first domain: the one wallets use to
+	// find stellar.toml from the asset. Stellar caps it at 32 characters.
+	domains := config.ParseHomeDomains(homeDomains)
+	if len(domains) == 0 || len(domains[0]) > maxHomeDomain {
+		return fmt.Errorf("STELLAR_HOME_DOMAIN: the first domain must have 1 to %d characters, the maximum for an account's home_domain", maxHomeDomain)
+	}
+	homeDomain := domains[0]
 
 	issuer, err := loadOrGenerate("STELLAR_ISSUER_SECRET")
 	if err != nil {
@@ -57,7 +69,7 @@ STELLAR_ISSUER_PUBLIC_KEY=%s
 STELLAR_ISSUER_SECRET=%s
 STELLAR_DISTRIBUTION_SECRET=%s
 STELLAR_SIGNING_SECRET=%s
-`, horizonURL, homeDomain, issuer.Address(), issuer.Seed(), distribution.Seed(), signing.Seed())
+`, horizonURL, homeDomains, issuer.Address(), issuer.Seed(), distribution.Seed(), signing.Seed())
 	return nil
 }
 

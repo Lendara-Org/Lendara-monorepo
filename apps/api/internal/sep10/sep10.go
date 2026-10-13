@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -47,7 +48,7 @@ func badRequest(format string, args ...any) error {
 // Service issues challenges and session tokens.
 type Service struct {
 	signing         *keypair.Full
-	homeDomain      string
+	homeDomains     []string
 	webAuthDomain   string
 	webAuthEndpoint string
 	jwtSecret       []byte
@@ -64,7 +65,7 @@ func New(cfg config.Config, accounts AccountLoader) (*Service, error) {
 	}
 	return &Service{
 		signing:         cfg.Stellar.Signing,
-		homeDomain:      cfg.Stellar.HomeDomain,
+		homeDomains:     cfg.Stellar.HomeDomains,
 		webAuthDomain:   u.Host,
 		webAuthEndpoint: cfg.APIBaseURL + "/auth",
 		jwtSecret:       cfg.JWTSecret,
@@ -77,9 +78,9 @@ func New(cfg config.Config, accounts AccountLoader) (*Service, error) {
 // (SEP-10 "Challenge"). memo and homeDomain are optional.
 func (s *Service) Challenge(account, memo, homeDomain string) (string, error) {
 	if homeDomain == "" {
-		homeDomain = s.homeDomain
+		homeDomain = s.homeDomains[0]
 	}
-	if homeDomain != s.homeDomain {
+	if !slices.Contains(s.homeDomains, homeDomain) {
 		return "", badRequest("home_domain %q is not supported", homeDomain)
 	}
 
@@ -113,9 +114,8 @@ func (s *Service) Challenge(account, memo, homeDomain string) (string, error) {
 // (SEP-10 "Token"). If the client account exists, its signers must meet the
 // medium threshold; otherwise the challenge must be signed by its master key.
 func (s *Service) Token(challengeXDR string) (string, error) {
-	homeDomains := []string{s.homeDomain}
 	tx, clientAccount, _, memo, err := txnbuild.ReadChallengeTx(challengeXDR, s.signing.Address(),
-		network.TestNetworkPassphrase, s.webAuthDomain, homeDomains)
+		network.TestNetworkPassphrase, s.webAuthDomain, s.homeDomains)
 	if err != nil {
 		return "", badRequest("invalid challenge: %v", err)
 	}
@@ -131,12 +131,12 @@ func (s *Service) Token(challengeXDR string) (string, error) {
 	switch {
 	case horizonclient.IsNotFoundError(err):
 		_, err = txnbuild.VerifyChallengeTxSigners(challengeXDR, s.signing.Address(),
-			network.TestNetworkPassphrase, s.webAuthDomain, homeDomains, signer)
+			network.TestNetworkPassphrase, s.webAuthDomain, s.homeDomains, signer)
 	case err != nil:
 		return "", fmt.Errorf("load client account: %w", err)
 	default:
 		_, err = txnbuild.VerifyChallengeTxThreshold(challengeXDR, s.signing.Address(),
-			network.TestNetworkPassphrase, s.webAuthDomain, homeDomains,
+			network.TestNetworkPassphrase, s.webAuthDomain, s.homeDomains,
 			txnbuild.Threshold(account.Thresholds.MedThreshold), account.SignerSummary())
 	}
 	if err != nil {

@@ -63,7 +63,9 @@ ORDER BY next_attempt_at
 LIMIT @max_results;
 
 -- name: SetNextAttempt :exec
-UPDATE transactions SET next_attempt_at = $2, updated_at = now() WHERE id = $1;
+-- updated_at is left alone: rescheduling is not a change of state, and the
+-- payment worker measures its deadlines from when the status last changed.
+UPDATE transactions SET next_attempt_at = $2 WHERE id = $1;
 
 -- name: ListTransactionsByProject :many
 -- /v1/transactions: newest first, cursor is the exclusive last transaction id.

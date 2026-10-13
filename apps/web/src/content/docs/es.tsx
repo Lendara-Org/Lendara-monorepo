@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { A, C, Callout, CodeBlock, H2, H3, List, P, Table } from "@/components/docs/prose";
 import type { DocChrome, DocPage, DocSlug } from "@/lib/docs";
-import { API_URL, DEMO_URL, REPO_URL, USDC_ISSUER } from "@/lib/site";
+import { API_URL, DEMO_URL, HOME_DOMAIN, REPO_URL, USDC_ISSUER } from "@/lib/site";
 
 const COPY: [string, string] = ["Copiar", "Copiado"];
 const Code = ({ code, title }: { code: string; title?: string }) => <CodeBlock code={code} title={title} copy={COPY} />;
@@ -308,7 +308,7 @@ const project = await lendara.getProject();`}
         <Table
           head={["", "URL"]}
           rows={[
-            ["SEP-1", <C key="u">{API_URL}/.well-known/stellar.toml</C>],
+            ["SEP-1", <C key="u">https://{HOME_DOMAIN}/.well-known/stellar.toml</C>],
             ["SEP-10", <C key="u">{API_URL}/auth</C>],
             ["SEP-24", <C key="u">{API_URL}/sep24</C>],
           ]}
@@ -339,7 +339,7 @@ const project = await lendara.getProject();`}
             testnet.
           </li>
           <li>
-            Agrega el activo <C>USDC</C> con el dominio <C>{API_URL.replace(/^https?:\/\//, "")}</C>.
+            Agrega el activo <C>USDC</C> con el dominio <C>{HOME_DOMAIN}</C>.
           </li>
           <li>Agrega la trustline, elige “SEP-24 deposit” y sigue el widget con una tarjeta de prueba.</li>
         </List>

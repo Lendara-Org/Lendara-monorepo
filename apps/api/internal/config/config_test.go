@@ -62,8 +62,43 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LogLevel != slog.LevelInfo {
 		t.Errorf("LogLevel = %v, want %v", cfg.LogLevel, slog.LevelInfo)
 	}
+	if len(cfg.Stellar.HomeDomains) != 1 || cfg.Stellar.HomeDomains[0] != "localhost:8080" {
+		t.Errorf("HomeDomains = %q, want [localhost:8080]", cfg.Stellar.HomeDomains)
+	}
 	if cfg.Stellar.HorizonURL != "https://horizon-testnet.stellar.org" {
 		t.Errorf("HorizonURL = %q, want testnet", cfg.Stellar.HorizonURL)
+	}
+}
+
+func TestParseHomeDomains(t *testing.T) {
+	got := ParseHomeDomains(" web.example.com, api.example.com ,,")
+	if strings.Join(got, "|") != "web.example.com|api.example.com" {
+		t.Errorf("ParseHomeDomains() = %q, want [web.example.com api.example.com]", got)
+	}
+	if got := ParseHomeDomains(" , "); len(got) != 0 {
+		t.Errorf("ParseHomeDomains(empty) = %q, want none", got)
+	}
+}
+
+func TestLoadRejectsInvalidHomeDomains(t *testing.T) {
+	for _, v := range []string{
+		"https://:web.example.com,api.example.com",
+		"https://web.example.com",
+		"web.example.com/path",
+		"web.example.com api.example.com",
+		":8080",
+		strings.Repeat("a", 60) + ".com",
+	} {
+		vars := validEnv(t)
+		vars["STELLAR_HOME_DOMAIN"] = v
+		if _, err := Load(env(vars)); err == nil || !strings.Contains(err.Error(), "STELLAR_HOME_DOMAIN") {
+			t.Errorf("STELLAR_HOME_DOMAIN=%q: Load() error = %v, want it rejected", v, err)
+		}
+	}
+	vars := validEnv(t)
+	vars["STELLAR_HOME_DOMAIN"] = "lendara-monorepo-fixh.vercel.app,localhost:8080"
+	if _, err := Load(env(vars)); err != nil {
+		t.Errorf("valid domains: Load() error = %v", err)
 	}
 }
 

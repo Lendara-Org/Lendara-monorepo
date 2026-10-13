@@ -394,7 +394,7 @@ func (q *Queries) ListTransactionsBySubject(ctx context.Context, arg ListTransac
 }
 
 const setNextAttempt = `-- name: SetNextAttempt :exec
-UPDATE transactions SET next_attempt_at = $2, updated_at = now() WHERE id = $1
+UPDATE transactions SET next_attempt_at = $2 WHERE id = $1
 `
 
 type SetNextAttemptParams struct {
@@ -402,6 +402,8 @@ type SetNextAttemptParams struct {
 	NextAttemptAt *time.Time
 }
 
+// updated_at is left alone: rescheduling is not a change of state, and the
+// payment worker measures its deadlines from when the status last changed.
 func (q *Queries) SetNextAttempt(ctx context.Context, arg SetNextAttemptParams) error {
 	_, err := q.db.Exec(ctx, setNextAttempt, arg.ID, arg.NextAttemptAt)
 	return err

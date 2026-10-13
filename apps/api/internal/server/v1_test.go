@@ -64,6 +64,22 @@ func TestV1Projects(t *testing.T) {
 	}
 }
 
+func TestV1ProjectsRateLimit(t *testing.T) {
+	e := newSEP24Env(t)
+	limit := rateRules["CreateProject"].limit
+	for i := range limit {
+		if rec := e.widgetDo(t, http.MethodPost, "/v1/projects", "", map[string]string{"name": "p"}); rec.Code != http.StatusCreated {
+			t.Fatalf("project %d: status = %d, want 201", i+1, rec.Code)
+		}
+	}
+
+	rec := e.widgetDo(t, http.MethodPost, "/v1/projects", "", map[string]string{"name": "p"})
+
+	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
+		t.Errorf("status = %d, Retry-After = %q; want 429 with Retry-After", rec.Code, rec.Header().Get("Retry-After"))
+	}
+}
+
 func TestV1RequiresAPIKey(t *testing.T) {
 	e := newSEP24Env(t)
 	for _, key := range []string{"", "lnd_test_unknown", "not-a-key"} {

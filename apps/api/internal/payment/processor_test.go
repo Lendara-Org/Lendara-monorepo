@@ -1,6 +1,7 @@
 package payment
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"strings"
@@ -193,13 +194,27 @@ func TestPaymentWaitsForTrustline(t *testing.T) {
 	}
 }
 
+// processUntil runs the worker on tx every few milliseconds, as the real
+// worker would on each recheck, until done or the timeout.
+func (e env) processUntil(t *testing.T, tx db.Transaction, timeout time.Duration, done func(db.Transaction) bool) db.Transaction {
+	t.Helper()
+	got := e.process(t, tx)
+	for deadline := time.Now().Add(timeout); !done(got) && time.Now().Before(deadline); {
+		time.Sleep(20 * time.Millisecond)
+		got = e.process(t, tx)
+	}
+	return got
+}
+
 func TestPaymentTrustlineDeadline(t *testing.T) {
 	e := newEnv(t)
 	deposit := e.approvedDeposit(t, keypair.MustRandom().Address(), nil)
-	e.process(t, deposit) // -> pending_trust
+	e.p.trustDeadline = 200 * time.Millisecond
 
-	e.p.trustDeadline = 0
-	got := e.process(t, deposit)
+	// Each recheck reschedules the deposit; that must not restart the deadline.
+	got := e.processUntil(t, deposit, 2*time.Second, func(tx db.Transaction) bool {
+		return tx.Status != string(transaction.StatusPendingTrust)
+	})
 
 	if got.Status != string(transaction.StatusError) || got.NextAttemptAt != nil {
 		t.Errorf("status = %s, next_attempt_at = %v; want error and no more attempts", got.Status, got.NextAttemptAt)
@@ -235,6 +250,64 @@ func TestPaymentSubmitFails(t *testing.T) {
 	}
 }
 
+func TestPaymentSubmitOutcomeUnknown(t *testing.T) {
+	for name, submitErr := range map[string]error{
+		"timeout": &horizonclient.Error{Problem: problem.P{Status: 504, Title: "Timeout"}},
+		"network": errors.New("connection reset by peer"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newEnv(t)
+			destination := keypair.MustRandom().Address()
+			e.addAccount(destination, true)
+			deposit := e.approvedDeposit(t, destination, nil)
+			e.horizon.submitErr = submitErr
+
+			current, _ := e.store.Get(t.Context(), deposit.ID)
+			if err := e.p.process(t.Context(), current); err == nil {
+				t.Fatal("process() error = nil, want error")
+			}
+			got, _ := e.store.Get(t.Context(), deposit.ID)
+			if got.Status != string(transaction.StatusPendingStellar) || got.StellarTransactionID == nil {
+				t.Fatalf("status = %s, hash = %v; want pending_stellar with the hash", got.Status, got.StellarTransactionID)
+			}
+			if got.NextAttemptAt == nil || !got.NextAttemptAt.After(time.Now()) {
+				t.Errorf("next_attempt_at = %v, want a later recheck", got.NextAttemptAt)
+			}
+
+			// It landed after all: the recheck finds it and does not pay again.
+			hash := *got.StellarTransactionID
+			e.horizon.submitErr = nil
+			e.horizon.ledger = map[string]horizon.Transaction{hash: {Hash: hash, Successful: true}}
+			got = e.process(t, got)
+			if got.Status != string(transaction.StatusCompleted) || len(e.horizon.submitted) != 1 {
+				t.Errorf("status = %s, submitted = %d; want completed with a single submission", got.Status, len(e.horizon.submitted))
+			}
+		})
+	}
+}
+
+func TestPaymentStaleWorkerDoesNotPay(t *testing.T) {
+	e := newEnv(t)
+	destination := keypair.MustRandom().Address()
+	e.addAccount(destination, true)
+	deposit := e.approvedDeposit(t, destination, nil)
+	stale, _ := e.store.Get(t.Context(), deposit.ID)
+
+	// A first worker submits; Horizon's answer never arrives.
+	e.horizon.submitErr = &horizonclient.Error{Problem: problem.P{Status: 504, Title: "Timeout"}}
+	_ = e.p.process(t.Context(), stale)
+
+	// A second worker still holds the pending_anchor row it read before.
+	err := e.p.process(t.Context(), stale)
+
+	if !errors.Is(err, transaction.ErrStale) {
+		t.Errorf("process() error = %v, want ErrStale", err)
+	}
+	if len(e.horizon.submitted) != 1 {
+		t.Errorf("submitted %d transactions, want 1 (must not pay twice)", len(e.horizon.submitted))
+	}
+}
+
 func TestPaymentRetriesWhenHorizonIsDown(t *testing.T) {
 	e := newEnv(t)
 	destination := keypair.MustRandom().Address()
@@ -251,13 +324,15 @@ func TestPaymentRetriesWhenHorizonIsDown(t *testing.T) {
 	}
 }
 
+const stuckHash = "deadbeef"
+
 // stuckPendingStellar simulates a worker crash right after pay() stored the
 // hash but before it (or we) learned whether SubmitTransaction succeeded: it
-// moves deposit straight to pending_stellar with a hash of its own, bypassing
+// moves deposit straight to pending_stellar with stuckHash, bypassing
 // SubmitTransaction entirely.
-func (e env) stuckPendingStellar(t *testing.T, deposit db.Transaction, hash string) db.Transaction {
+func (e env) stuckPendingStellar(t *testing.T, deposit db.Transaction) db.Transaction {
 	t.Helper()
-	now := time.Now()
+	now, hash := time.Now(), stuckHash
 	tx, err := e.store.Transition(t.Context(), deposit.ID, transaction.StatusPendingStellar,
 		transaction.Update{StellarTransactionID: &hash, NextAttemptAt: &now})
 	if err != nil {
@@ -271,9 +346,9 @@ func TestPaymentRecoversWhenStuckSubmissionLanded(t *testing.T) {
 	destination := keypair.MustRandom().Address()
 	e.addAccount(destination, true)
 	deposit := e.approvedDeposit(t, destination, nil)
-	stuck := e.stuckPendingStellar(t, deposit, "deadbeef")
+	stuck := e.stuckPendingStellar(t, deposit)
 	// Horizon actually has it, even though our worker never saw that.
-	e.horizon.ledger = map[string]horizon.Transaction{"deadbeef": {Hash: "deadbeef", Successful: true}}
+	e.horizon.ledger = map[string]horizon.Transaction{stuckHash: {Hash: stuckHash, Successful: true}}
 
 	got := e.process(t, stuck)
 
@@ -283,7 +358,7 @@ func TestPaymentRecoversWhenStuckSubmissionLanded(t *testing.T) {
 	if len(e.horizon.submitted) != 0 {
 		t.Errorf("submitted %d transactions, want 0 (must not pay twice)", len(e.horizon.submitted))
 	}
-	if got.StellarTransactionID == nil || *got.StellarTransactionID != "deadbeef" {
+	if got.StellarTransactionID == nil || *got.StellarTransactionID != stuckHash {
 		t.Errorf("stellar_transaction_id = %v, want the original deadbeef hash kept", got.StellarTransactionID)
 	}
 }
@@ -293,10 +368,13 @@ func TestPaymentRecoversWhenStuckSubmissionNeverLanded(t *testing.T) {
 	destination := keypair.MustRandom().Address()
 	e.addAccount(destination, true)
 	deposit := e.approvedDeposit(t, destination, nil)
-	stuck := e.stuckPendingStellar(t, deposit, "deadbeef")
-	e.p.stellarDeadline = 0 // the original submission's time bounds are long expired
+	stuck := e.stuckPendingStellar(t, deposit)
+	e.p.stellarDeadline = 200 * time.Millisecond
 
-	got := e.process(t, stuck)
+	// Each recheck reschedules the deposit; that must not restart the deadline.
+	got := e.processUntil(t, stuck, 2*time.Second, func(tx db.Transaction) bool {
+		return tx.Status != string(transaction.StatusPendingStellar)
+	})
 
 	if got.Status != string(transaction.StatusCompleted) {
 		t.Fatalf("status = %s (%v), want completed", got.Status, got.Message)
@@ -304,8 +382,31 @@ func TestPaymentRecoversWhenStuckSubmissionNeverLanded(t *testing.T) {
 	if len(e.horizon.submitted) != 1 {
 		t.Fatalf("submitted %d transactions, want 1 (a fresh payment)", len(e.horizon.submitted))
 	}
-	if got.StellarTransactionID == nil || *got.StellarTransactionID == "deadbeef" {
+	if got.StellarTransactionID == nil || *got.StellarTransactionID == stuckHash {
 		t.Errorf("stellar_transaction_id = %v, want a new hash, not the stale deadbeef", got.StellarTransactionID)
+	}
+}
+
+func TestPaymentStaleRecoveryDoesNotPayTwice(t *testing.T) {
+	e := newEnv(t)
+	destination := keypair.MustRandom().Address()
+	e.addAccount(destination, true)
+	deposit := e.approvedDeposit(t, destination, nil)
+	stuck := e.stuckPendingStellar(t, deposit)
+	e.p.stellarDeadline = 0
+
+	// A first worker sends a fresh payment; Horizon's answer never arrives.
+	e.horizon.submitErr = &horizonclient.Error{Problem: problem.P{Status: 504, Title: "Timeout"}}
+	_ = e.p.process(t.Context(), stuck)
+
+	// A second worker still holds the row with the old hash.
+	err := e.p.process(t.Context(), stuck)
+
+	if !errors.Is(err, transaction.ErrStale) {
+		t.Errorf("process() error = %v, want ErrStale", err)
+	}
+	if len(e.horizon.submitted) != 1 {
+		t.Errorf("submitted %d transactions, want 1 (must not pay twice)", len(e.horizon.submitted))
 	}
 }
 
@@ -314,7 +415,7 @@ func TestPaymentWaitsWhenStuckSubmissionStatusIsUnknown(t *testing.T) {
 	destination := keypair.MustRandom().Address()
 	e.addAccount(destination, true)
 	deposit := e.approvedDeposit(t, destination, nil)
-	stuck := e.stuckPendingStellar(t, deposit, "deadbeef")
+	stuck := e.stuckPendingStellar(t, deposit)
 	// e.p.stellarDeadline keeps its default (5 minutes): nowhere near expired.
 
 	got := e.process(t, stuck)

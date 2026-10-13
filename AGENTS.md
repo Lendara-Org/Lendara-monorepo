@@ -199,17 +199,29 @@ cualquier estado → error (con `message`)
 - Goroutine dentro del proceso de la API, cada 2 s. Toma `pending_anchor`/`pending_trust`/`pending_stellar` con
   `next_attempt_at` vencido.
 - Sin trustline → `pending_trust` (revisa cada 15 s; a la hora → `error`). Guarda el hash en `pending_stellar` antes de
-  enviar, con un `next_attempt_at` propio (10 s) como red de seguridad. Fallo de Horizon al enviar → `error` con
-  result codes; fallo al leer la cuenta → reintenta.
-- Si el proceso se cae (o Horizon no responde) entre guardar el hash y confirmar el envío, la transacción queda
+  enviar, con un `next_attempt_at` propio (10 s) como red de seguridad. Fallo al leer la cuenta → reintenta.
+- Al enviar: si Horizon responde con *result codes* es un rechazo real → `error`. Un timeout (504) o un corte de red no
+  dice si el pago llegó: la transacción se queda en `pending_stellar` y la revisión por hash lo resuelve.
+- Si el proceso se cae (o el envío queda sin respuesta) entre guardar el hash y confirmar el envío, la transacción queda
   `pending_stellar` y vuelve a aparecer en el siguiente ciclo. El worker nunca reenvía a ciegas: primero le pregunta a
   Horizon por ese hash (`TransactionDetail`). Si ya se confirmó → `completed`. Si todavía no aparece y no pasaron 5
   minutos (el *time bound* de la transacción original ya venció) → vuelve a esperar. Si pasaron 5 minutos sin
   aparecer → arma y envía un pago nuevo (`pending_stellar → pending_stellar`, único self-loop de la máquina de
   estados).
+- Los plazos (1 h en `pending_trust`, 5 min en `pending_stellar`) se miden desde `updated_at`, que solo cambia con el
+  estado: `Store.Reschedule` mueve `next_attempt_at` sin tocarlo.
+- El paso a `pending_stellar` usa `Store.TransitionFrom` con la fila que leyó el worker: si otro worker la cambió (otro
+  estado u otro hash) falla con `ErrStale` y no se envía nada. Así dos instancias nunca pagan dos veces.
 
 ### SEP-1 / SEP-10 / SEP-24
 - `stellar.toml` se genera desde la config, con CORS `*`.
+- **Home domain:** el del emisor del USDC en testnet es `lendara-monorepo-fixh.vercel.app`, porque Stellar limita el
+  `home_domain` de una cuenta a 32 caracteres y el dominio de Railway tiene 36. La web reescribe
+  `/.well-known/stellar.toml` al de la API (`apps/web/next.config.ts`). `STELLAR_HOME_DOMAIN` es una lista separada
+  por comas que SEP-10 acepta toda; la primera es la de por defecto y la que `setup-testnet` pone en el emisor. En
+  Railway: `lendara-monorepo-fixh.vercel.app,lendaraweb-production.up.railway.app`.
+  ⚠️ El emisor es compartido: en el `.env` local usa `STELLAR_HOME_DOMAIN=lendara-monorepo-fixh.vercel.app,localhost:8080`
+  para que `make setup-testnet` no le vuelva a poner `localhost:8080`.
 - SEP-10: JWT HS256 con `SEP10_JWT_SECRET` (≥ 32 caracteres), TTL 24 h, `sub` = `G…`, `M…` o `G…:memo`. `client_domain`
   no se soporta. Cuenta existente → umbral medio; inexistente → firma de la master key.
 - Auth SEP-24: middleware con lista de operationIDs (`internal/server/auth.go`); sin JWT válido → 403
@@ -229,6 +241,10 @@ cualquier estado → error (con `message`)
 - `GET /v1/transactions` (cursor = id de la última transacción, `limit` 1–100) y `GET /v1/transactions/{id}` (otro
   proyecto → 404). Reutilizan el schema `Sep24Transaction`.
 - Errores en JSON `{"error": "…"}`.
+- **Rate limiting** (`internal/server/ratelimit.go`, en memoria, ventana fija): `POST /v1/projects` 10/h por IP,
+  `POST /v1/sessions` 60/min por proyecto, `POST /sep24/transactions/deposit/interactive` 30/min por cuenta SEP-10.
+  Al pasarse → 429 con `Retry-After`. La IP es la **última** entrada de `X-Forwarded-For` (la que agrega el proxy de
+  Railway). Con varias instancias cada una contaría por su lado.
 
 ### Código del backend
 - `handlers.New(handlers.Config{...})` recibe todas las dependencias; `server.New(logger, db, handlers, server.Auth{SEP10,
@@ -304,7 +320,7 @@ make dev-demo        # http://localhost:3001 (necesita LENDARA_API_KEY de un pro
 
 ---
 
-## 10. Estado (actualizado 2026-10-11)
+## 10. Estado (actualizado 2026-10-12)
 
 **Hecho y desplegado:** setup del monorepo y CI; SEP-1, SEP-10, SEP-24 (depósito); simulador fiat con escenarios por
 tarjeta; worker de pagos con `pending_trust`; widget tipo checkout (es/en); API `/v1` con proyectos y API keys;
@@ -312,8 +328,10 @@ tarjeta; worker de pagos con `pending_trust`; widget tipo checkout (es/en); API 
 dashboard; docs bilingües; landing bilingüe; README.
 
 **Pendiente:**
-- Validar con la **Demo Wallet de SDF** (SEP-10 + depósito SEP-24) y con la anchor test suite de SDF; actualizar la
-  tabla "Validation" del README.
+- ✅ Validado el 2026-10-12: anchor test suite de SDF (SEP-1 5/5, SEP-10 16/16, los 27 tests de depósito SEP-24; solo
+  fallan los de retiro) y depósito completo desde la Demo Wallet de SDF. Resultados y hashes en la tabla "Validation"
+  del README. Para repetir la suite con los tests `pending_`/`completed` hace falta un `--sep-config` con una cuenta de
+  testnet y dos depósitos suyos.
 - Video de 2–3 minutos para la entrega.
 - Extras, en orden: webhooks para integradores (HMAC) → retiros SEP-24 → SEP-12 (KYC simulado) → SEP-38 → SEP-31.
 

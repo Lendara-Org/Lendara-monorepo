@@ -34,8 +34,11 @@ type Config struct {
 
 // Stellar holds the testnet accounts created by `make setup-testnet`.
 type Stellar struct {
-	HorizonURL   string
-	HomeDomain   string
+	HorizonURL string
+	// HomeDomains are the domains whose stellar.toml points to this API
+	// (STELLAR_HOME_DOMAIN, comma-separated). The first is the default
+	// SEP-10 home_domain and the one setup-testnet sets on the issuer.
+	HomeDomains  []string
 	IssuerPublic string
 	Distribution *keypair.Full
 	Signing      *keypair.Full
@@ -66,7 +69,7 @@ func Load(getenv func(string) string) (Config, error) {
 		WebBaseURL:  strings.TrimSuffix(optional("WEB_BASE_URL", "http://localhost:3000"), "/"),
 		Stellar: Stellar{
 			HorizonURL:   optional("STELLAR_HORIZON_URL", "https://horizon-testnet.stellar.org"),
-			HomeDomain:   optional("STELLAR_HOME_DOMAIN", "localhost:8080"),
+			HomeDomains:  ParseHomeDomains(optional("STELLAR_HOME_DOMAIN", "localhost:8080")),
 			IssuerPublic: required("STELLAR_ISSUER_PUBLIC_KEY"),
 		},
 	}
@@ -79,6 +82,14 @@ func Load(getenv func(string) string) (Config, error) {
 	for key, u := range map[string]string{"API_BASE_URL": cfg.APIBaseURL, "WEB_BASE_URL": cfg.WebBaseURL} {
 		if parsed, err := url.Parse(u); err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			errs = append(errs, fmt.Errorf("%s must be an absolute URL", key))
+		}
+	}
+	if len(cfg.Stellar.HomeDomains) == 0 {
+		errs = append(errs, errors.New("STELLAR_HOME_DOMAIN must list at least one domain"))
+	}
+	for _, d := range cfg.Stellar.HomeDomains {
+		if !validHomeDomain(d) {
+			errs = append(errs, fmt.Errorf("STELLAR_HOME_DOMAIN: %q must be a bare host such as example.com or localhost:8080 (no scheme, path or spaces)", d))
 		}
 	}
 	if cfg.Stellar.IssuerPublic != "" && !strkey.IsValidEd25519PublicKey(cfg.Stellar.IssuerPublic) {
@@ -112,4 +123,28 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("invalid config: %w", err)
 	}
 	return cfg, nil
+}
+
+// maxHomeDomain keeps the SEP-10 challenge key "<home_domain> auth" within
+// the 64 bytes of a manage_data name.
+const maxHomeDomain = 64 - len(" auth")
+
+// validHomeDomain reports whether d is a host with an optional port.
+func validHomeDomain(d string) bool {
+	if len(d) > maxHomeDomain || strings.ContainsAny(d, "/ \t@?#") {
+		return false
+	}
+	u, err := url.Parse("//" + d)
+	return err == nil && u.Host == d && u.Hostname() != ""
+}
+
+// ParseHomeDomains splits a comma-separated STELLAR_HOME_DOMAIN value.
+func ParseHomeDomains(v string) []string {
+	var domains []string
+	for d := range strings.SplitSeq(v, ",") {
+		if d = strings.TrimSpace(d); d != "" {
+			domains = append(domains, d)
+		}
+	}
+	return domains
 }
